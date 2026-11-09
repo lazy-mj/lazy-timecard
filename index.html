@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://api.fontshare.com; font-src 'self' https://cdn.fontshare.com; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none';">
+<title>참여율 대조 도구</title>
+<link rel="icon" type="image/svg+xml" href="/lazy-office/shared/favicon.svg">
+<!-- 공통 디자인 시스템(lazy-office). 아래 css/style.css가 뒤에 로드되므로 겹치는 규칙은 항상 css/style.css가 이깁니다 -->
+<link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=clash-display@400,600,700&display=swap">
+<link rel="stylesheet" href="/lazy-office/shared/style.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body class="tool-page">
+<div class="site-header-placeholder"></div>
+
+<section class="tool-hero">
+  <div class="tool-hero-inner">
+    <img class="tool-hero-icon" src="assets/icon.svg" alt="참여율 대조 도구 아이콘">
+    <h1>참여율 대조 도구</h1>
+    <p class="tool-tagline">PMS와 IRIS 인건비 참여율, 사람별·월별로 한눈에.</p>
+    <span class="lock-note"><svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> 데이터 서버 미전송</span>
+    <span class="lock-note guide-badge" id="guideBadge" role="button" tabindex="0"><svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg> 사용법 보기</span>
+  </div>
+</section>
+
+<div class="shell">
+
+  <ol class="stepper" id="stepper">
+    <li class="step" data-step="1"><span class="dot">1</span><span class="label">파일 업로드</span></li>
+    <li class="connector"></li>
+    <li class="step" data-step="2"><span class="dot">2</span><span class="label">대조 실행</span></li>
+    <li class="connector"></li>
+    <li class="step" data-step="3"><span class="dot">3</span><span class="label">결과 확인</span></li>
+  </ol>
+
+  <div id="errorArea"></div>
+  <div id="toast-zone" class="toast-zone" aria-live="polite"></div>
+
+  <section class="card" id="uploadCard">
+    <div class="card-head">
+      <h2><span class="step-badge"><svg class="icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg></span>참여인력 파일 업로드</h2>
+      <p class="desc">PMS(ETRIware) 참여인력 엑셀과 IRIS 참여연구자 엑셀을 올리면 ETRI 참여자의 참여기간·월별 참여율을 대조합니다.</p>
+      <p class="scope-note"><svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg> 현재 IRIS 지원 (이지바로는 추후 추가 예정) · 한 번에 과제 1개</p>
+    </div>
+    <div class="dropzone" id="dropzone">
+      <div class="dz-icon"><svg class="icon-svg" width="26" height="26" viewBox="0 0 24 24"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg></div>
+      <div class="dz-label">PMS·IRIS 엑셀 파일 2개를 여기로 끌어다 놓거나 클릭해서 업로드하세요</div>
+      <div class="dz-hint">두 파일을 한 번에 드래그해도 어느 쪽인지 자동으로 구분합니다</div>
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.xlsm" multiple>
+    </div>
+    <div class="file-chips" id="fileChips"></div>
+    <div class="upload-hint-msg" id="uploadHint"></div>
+    <div class="btn-row">
+      <button class="btn-action" id="runBtn" disabled><span class="shine"></span><span class="btn-label">대조 실행</span></button>
+    </div>
+  </section>
+
+  <section class="card" id="resultCard" style="display:none;">
+    <div class="card-head">
+      <h2><span class="step-badge"><svg class="icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>대조 결과</h2>
+      <p class="desc">칸마다 위는 PMS, 아래는 IRIS 참여율(%)입니다. 다른 칸만 빨갛게 표시돼요.</p>
+    </div>
+    <div id="summaryArea"></div>
+    <div id="resultArea"></div>
+    <div class="btn-row">
+      <button class="btn btn-outline" id="downloadBtn"><svg class="icon-svg" width="16" height="16" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg> 결과 다운로드</button>
+      <button class="btn btn-outline" id="resetBtn"><svg class="icon-svg" width="16" height="16" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg> 처음으로 돌아가기</button>
+    </div>
+  </section>
+
+  <footer class="app-footer">
+    <p class="foot-note">모든 대조는 이 브라우저 안에서만 이루어지며 업로드한 파일은 어디로도 전송되지 않습니다. 새로고침하면 업로드한 파일과 결과는 모두 사라집니다.</p>
+    <div class="foot-links">
+      <span class="foot-contact"><svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>문의 및 수정사항 제보 : 전민지</span>
+    </div>
+  </footer>
+
+</div>
+
+  <!-- 로딩 순서가 중요합니다: 의존관계 순서대로 나열 -->
+  <script src="/lazy-office/shared/app-core.js"></script>
+  <script src="js/vendor/xlsx.full.min.js"></script>
+  <script src="js/core/grid-utils.js"></script>
+  <script src="js/core/period.js"></script>
+  <script src="js/systems/registry.js"></script>
+  <script src="js/systems/pms.js"></script>
+  <script src="js/systems/iris.js"></script>
+  <script src="js/core/compare.js"></script>
+  <script src="js/ui/dom.js"></script>
+  <script src="js/ui/state.js"></script>
+  <script src="js/ui/render.js"></script>
+  <script src="js/ui/excel-export.js"></script>
+  <script src="js/main.js"></script>
+  <script src="/lazy-office/shared/header.js" data-active="timecard"></script>
+</body>
+</html>
