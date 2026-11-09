@@ -22,64 +22,72 @@ function readWorkbookGrid(file) {
 function resetResultIfNeeded() {
   if (!AppState.state.resultShown) return;
   AppState.state.resultShown = false;
-  AppState.state.lastResult = null;
+  AppState.state.lastResults = [];
   $("#uploadCard").style.display = "block";
   $("#resultCard").style.display = "none";
   AppCore.toast.show("파일이 바뀌어 이전 결과를 초기화했습니다. 다시 대조를 실행해주세요.");
+}
+
+function refreshUpload() {
+  AppState.refreshPairs();
+  renderChips();
+  renderPairs();
+  updateRunState();
 }
 
 async function handleFiles(fileList) {
   resetResultIfNeeded();
   $("#errorArea").innerHTML = "";
   for (const file of Array.from(fileList)) {
-    const entry = { id: AppState.nextFileId(), name: file.name, grid: null, type: "분석중" };
+    const entry = { id: AppState.nextFileId(), name: file.name, grid: null, type: "분석중", parsed: null };
     AppState.state.files.push(entry);
     renderChips();
     try {
       entry.grid = await readWorkbookGrid(file);
       entry.type = SystemRegistry.detectType(entry.grid);
+      if (entry.type !== "UNKNOWN") entry.parsed = SystemRegistry.get(entry.type).parse(entry.grid);
     } catch (err) {
       entry.type = "ERROR";
       console.error(err);
     }
-    // 과제 1개 = PMS 1개 + IRIS 1개. 같은 종류가 또 들어오면 이전 파일을 교체한다.
-    if (entry.type === "PMS" || entry.type === "IRIS") {
-      const before = AppState.state.files.filter((f) => f.type === entry.type && f.id !== entry.id);
-      if (before.length) {
-        AppState.state.files = AppState.state.files.filter((f) => !before.includes(f));
-        AppCore.toast.show(`${entry.type} 파일을 새로 올린 파일로 교체했어요.`);
-      }
-    }
-    renderChips();
   }
-  updateRunState();
+  refreshUpload();
 }
 
 function removeFile(id) {
   resetResultIfNeeded();
   AppState.state.files = AppState.state.files.filter((f) => f.id !== id);
-  renderChips();
-  updateRunState();
+  refreshUpload();
+}
+
+function setPair(pmsId, irisId) {
+  AppState.state.pairs[pmsId] = irisId;
+  AppState.state.manual.add(pmsId);
+  refreshUpload();
 }
 
 function resetAll() {
   AppState.state.files = [];
+  AppState.state.pairs = {};
+  AppState.state.manual.clear();
   AppState.state.resultShown = false;
-  AppState.state.lastResult = null;
-  renderChips();
-  updateRunState();
+  AppState.state.lastResults = [];
+  refreshUpload();
   $("#uploadCard").style.display = "block";
   $("#resultCard").style.display = "none";
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function runComparison() {
-  const pmsFile = AppState.fileOf("PMS");
-  const irisFile = AppState.fileOf("IRIS");
-  if (!pmsFile || !irisFile) return;
-  const pms = SystemRegistry.get("PMS").parse(pmsFile.grid);
-  const iris = SystemRegistry.get("IRIS").parse(irisFile.grid);
-  renderResults(Compare.run(pms, iris));
+  const pairs = AppState.activePairs();
+  if (!pairs.length) return;
+  const items = pairs.map(({ pms, iris }) => {
+    const result = Compare.run(pms.parsed, iris.parsed);
+    const code = pms.parsed && pms.parsed.ok ? pms.parsed.meta.projectCode : "";
+    const label = (code || pms.name) + (result.ok && result.leaderName ? ` (${result.leaderName})` : "");
+    return { label, pmsName: pms.name, irisName: iris.name, result };
+  });
+  renderResults(items);
 }
 
 function wireDropzone() {
@@ -101,18 +109,16 @@ function showGuideModal() {
     bodyHtml: `
       <ol>
         <li><b>파일 업로드</b> : PMS 참여인력 엑셀과 IRIS 참여연구자 엑셀을 함께 끌어다 놓으세요. 어느 쪽인지 자동으로 구분합니다.</li>
+        <li><b>여러 과제를 한 번에</b> : 여러 과제 파일을 한꺼번에 올리면 PMS 파일마다 <b>참여자 이름이 가장 많이 겹치는 IRIS 파일</b>을 자동으로 짝지어 둡니다. 짝이 틀렸으면 목록의 선택창에서 바꿔주세요.</li>
         <li><b>대조 실행</b> : IRIS에서는 <b>한국전자통신연구원</b> 연구자만 골라, PMS와 <b>이름</b>으로 짝지어 달마다 참여율을 비교합니다.</li>
-        <li><b>결과 확인</b> : 칸마다 위가 PMS, 아래가 IRIS 참여율입니다. 같으면 숫자 하나, 다르면 빨간 칸에 두 숫자가 보여요.
-          위쪽 탭으로 <b>월별 인건비 참여율 기준</b>과 <b>협약사업 기준</b>을 바꿔 볼 수 있어요.</li>
-        <li><b>내보내기</b> : [결과 다운로드]로 요약·월별대조 시트가 담긴 엑셀을 받을 수 있어요.</li>
+        <li><b>결과 확인</b> : 한 사람당 PMS 줄과 IRIS 줄이 있고, 값이 다른 달은 두 칸이 함께 빨갛게 표시돼요.
+          위쪽 탭으로 <b>실행과제 기준</b>(PMS 월별 인건비 참여율)과 <b>협약 기준</b>(PMS 협약사업 참여기간/참여율)을 바꿔 볼 수 있어요.</li>
+        <li><b>내보내기</b> : [결과 다운로드]로 요약 시트와 과제별 월별대조 시트가 담긴 엑셀을 받을 수 있어요.</li>
       </ol>
-      <p class="usage-subhead">이렇게 판정해요</p>
+      <p class="usage-subhead">어디서 다운로드하나요?</p>
       <ul>
-        <li><b>연평균 일치</b> : IRIS에 기간 하나로(연평균 참여율) 넣은 경우, 참여 시작·끝 달이 같고 평균(참여율 합 ÷ 참여 개월수)이 같으면 일치로 봅니다.</li>
-        <li><b>◐ 부분 참여</b> : 한 달을 다 채우지 않은 기간(예: 08/18~08/31)은 참여율 값만 비교하고 ◐로 표시해요.</li>
-        <li><b>동명이인</b> : 같은 이름이 한쪽에 2명 이상이면 자동으로 짝짓지 않고 확인 필요로 보여줘요.</li>
-        <li><b>IRIS 수행종료</b> : 대조에서 빼지 않고 태그로 표시해요. PMS에선 참여 중인데 IRIS에서만 종료일 수 있으니까요.</li>
-        <li><b>PMS 내부 불일치</b> : 실행과제 기간 문구와 월별 열 값이 다르면 <b>!</b> 로 따로 알려드려요.</li>
+        <li><b>PMS(ETRIware) 참여인력</b> : 과제관리 &gt; 사업관리 &gt; 실행과제관리 &gt; 실행계획서관리 &gt; 과제조회 후 더블클릭(실행과제마스터) &gt; 참여인력 탭 &gt; 우측상단 [엑셀변환] 버튼</li>
+        <li><b>IRIS 참여연구자</b> : IRIS R&amp;D업무포털 &gt; 과제수행 &gt; 협약변경 &gt; (승인통보)협약변경신청 &gt; 과제조회(책임자명, 과제명 등) &gt; 연구개발과제명 앞 네모 버튼 &gt; 통합과제 팝업 &gt; 수행정보 탭 &gt; 연차별수행정보 탭 &gt; 참여연구원 탭 &gt; 좌측에서 당해 연구개발기간 선택 &gt; 참여연구원 참여시작일 확인 후 우측상단 [엑셀] 버튼</li>
       </ul>
     `,
   });
