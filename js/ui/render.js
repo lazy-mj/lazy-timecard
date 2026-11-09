@@ -102,13 +102,13 @@ function renderPairs() {
     const ov = irisFile ? Compare.nameOverlap(p.parsed, irisFile.parsed) : null;
     let status;
     if (!chosen) status = `<span class="pr-st st-none">대조 안 함</span>`;
-    else if (ov.ratio >= 0.5) status = `<span class="pr-st st-ok">이름 ${ov.common}/${ov.total}명 겹침</span>`;
-    else status = `<span class="pr-st st-bad">이름 ${ov.common}/${ov.total}명만 겹쳐요 — 다른 과제 아닐까요?</span>`;
+    else if (ov.ratio >= 0.5) status = `<span class="pr-st st-ok">일치 ${ov.common}명</span>`;
+    else status = `<span class="pr-st st-bad">일치 ${ov.common}명 (PMS ${ov.total}명 중) — 다른 과제 아닐까요?</span>`;
     if (chosen && usedCount[chosen] > 1) status += `<span class="pr-st st-bad">같은 IRIS 파일을 두 과제에 골랐어요</span>`;
     const options = [`<option value="0"${chosen ? "" : " selected"}>— 대조 안 함 —</option>`,
       ...irisList.map((i) => {
         const o = Compare.nameOverlap(p.parsed, i.parsed);
-        return `<option value="${i.id}"${i.id === chosen ? " selected" : ""}>${escapeHtml(i.name)} (겹침 ${o.common}명)</option>`;
+        return `<option value="${i.id}"${i.id === chosen ? " selected" : ""}>${escapeHtml(i.name)} (일치 ${o.common}명)</option>`;
       })].join("");
     return `<div class="pair-row">
       <div class="pr-pms"><span class="dz-badge badge-pms">PMS</span>${code ? `<b class="pr-code">${escapeHtml(code)}</b>` : ""}<span class="pr-file" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</span></div>
@@ -118,7 +118,7 @@ function renderPairs() {
     </div>`;
   }).join("");
   const counts = pmsList.length > 1 || irisList.length > 1 ? ` <span>PMS ${pmsList.length}개 · IRIS ${irisList.length}개</span>` : "";
-  wrap.innerHTML = `<div class="pair-title">과제 짝${counts}</div>${rows}`;
+  wrap.innerHTML = `<div class="pair-title">대조할 과제${counts}</div>${rows}`;
   wrap.querySelectorAll("[data-pair]").forEach((sel) => {
     sel.addEventListener("change", () => setPair(Number(sel.dataset.pair), Number(sel.value)));
   });
