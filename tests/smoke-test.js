@@ -131,5 +131,85 @@ const pairs = Compare.suggestPairs(
 expect("짝짓기: PMS1 ↔ IRIS11", pairs[1], 11);
 expect("짝짓기: 겹침 없으면 짝 없음", pairs[2], undefined);
 
+// ---- 한 과제를 PMS 실행계정 2개로 나눈 경우: 합산해서 IRIS 하나와 대조 ----
+const splitHead = (code) => [
+  pmsGrid[0].map((h) => (h.startsWith("실행과제") ? `실행과제(${code})` : h)),
+  pmsGrid[1],
+];
+const accA = [...splitHead("99XX000A"),
+  pmsRow("가나다", "00001/테스트실/책임연구원", "26/04/01 ~ 26/12/31 : 50%", "26/04/01 ~ 26/12/31 : 30%", [30, 30, 30, 30, 30, 30, 30, 30, 30], "사업책임자"),
+  pmsRow("라마바", "00002/테스트실/선임연구원", "", "26/04/01 ~ 26/12/31 : 10%", [10, 10, 10, 10, 10, 10, 10, 10, 10])];
+const accB = [...splitHead("99XX000B"),
+  pmsRow("가나다", "00001/테스트실/책임연구원", "26/04/01 ~ 26/12/31 : 50%", "26/04/01 ~ 26/12/31 : 20%", [20, 20, 20, 20, 20, 20, 20, 20, 20]),
+  pmsRow("사아자", "00003/테스트실/연구원", "", "26/07/01 ~ 26/12/31 : 40%", [0, 0, 0, 40, 40, 40, 40, 40, 40])];
+seq = 0;
+const irisSplit = [...irisHead,
+  ...irisPerson(ETRI, "가나다", "수행중", [["2026-04-01", "2026-12-31", 50]]),
+  ...irisPerson(ETRI, "라마바", "수행중", [["2026-04-01", "2026-12-31", 10]]),
+  ...irisPerson(ETRI, "사아자", "수행중", [["2026-07-01", "2026-12-31", 40]])];
+const pA = SystemRegistry.get("PMS").parse(accA), pB = SystemRegistry.get("PMS").parse(accB);
+const pI = SystemRegistry.get("IRIS").parse(irisSplit);
+const splitPairs = Compare.suggestPairs([{ id: 1, parsed: pA }, { id: 2, parsed: pB }], [{ id: 9, parsed: pI }]);
+expect("실행계정 2개 → 같은 IRIS로 자동 짝", `${splitPairs[1]},${splitPairs[2]}`, "9,9");
+const mergedPms = Compare.mergePms([pA, pB]);
+expect("합친 과제번호(짧게)", mergedPms.meta.projectCode, "99XX00xx · 실행계정 2개");
+expect("합친 인원(이름 기준)", mergedPms.people.length, 3);
+const splitRes = Compare.run(mergedPms, pI);
+const srow = (n) => splitRes.rows.find((r) => r.name === n);
+expect("가나다 30+20=50 → 일치", srow("가나다").verdict, "match");
+expect("가나다 계정별 내역", srow("가나다").pms.monthly["2026-05"].parts.map((p) => p.code + ":" + p.rate).join(","), "99XX000A:30,99XX000B:20");
+expect("협약은 더하지 않음", srow("가나다").agreement.verdict, "match");
+expect("한쪽 계정에만 있는 사람도 일치", srow("사아자").verdict, "match");
+expect("합친 과제 책임자", splitRes.leaderName, "가나다");
+
+// ---- 실행계정끼리 사람이 안 겹치는 일반적인 경우 (XX10 / XX20) ----
+const acc10 = [...splitHead("99YY0010"),
+  pmsRow("가나다", "00001/테스트실/책임연구원", "", "26/04/01 ~ 26/12/31 : 50%", [50, 50, 50, 50, 50, 50, 50, 50, 50], "사업책임자"),
+  pmsRow("라마바", "00002/테스트실/선임연구원", "", "26/04/01 ~ 26/12/31 : 10%", [10, 10, 10, 10, 10, 10, 10, 10, 10])];
+const acc20 = [...splitHead("99YY0020"),
+  pmsRow("사아자", "00003/테스트실/연구원", "", "26/07/01 ~ 26/12/31 : 40%", [0, 0, 0, 40, 40, 40, 40, 40, 40]),
+  pmsRow("차카타", "00004/테스트실/연구원", "", "26/04/01 ~ 26/12/31 : 10%", [10, 10, 10, 10, 10, 10, 10, 10, 10]),
+  pmsRow("새로운", "00012/테스트실/연구원", "", "26/04/01 ~ 26/12/31 : 10%", [10, 10, 10, 10, 10, 10, 10, 10, 10])];
+seq = 0;
+const irisFam = [...irisHead,
+  ...irisPerson(ETRI, "가나다", "수행중", [["2026-04-01", "2026-12-31", 50]]),
+  ...irisPerson(ETRI, "라마바", "수행중", [["2026-04-01", "2026-12-31", 10]]),
+  ...irisPerson(ETRI, "사아자", "수행중", [["2026-07-01", "2026-12-31", 40]]),
+  ...irisPerson(ETRI, "차카타", "수행중", [["2026-04-01", "2026-12-31", 10]])];
+const p10 = SystemRegistry.get("PMS").parse(acc10), p20 = SystemRegistry.get("PMS").parse(acc20);
+const pFam = SystemRegistry.get("IRIS").parse(irisFam);
+// 99YY0020 은 3명 중 2명만 IRIS에 있음(67%) → 80% 미만이지만 과제번호 앞부분(99YY00)이 같아서 같은 IRIS에 붙어야 함
+const famPairs = Compare.suggestPairs([{ id: 1, parsed: p10 }, { id: 2, parsed: p20 }], [{ id: 9, parsed: pFam }]);
+expect("XX10·XX20 → 같은 IRIS (과제번호 규칙)", `${famPairs[1]},${famPairs[2]}`, "9,9");
+// 과제번호가 다른 과제면 67% 겹침으로는 붙이지 않음
+const p20other = SystemRegistry.get("PMS").parse([...splitHead("88ZZ0020"), ...acc20.slice(2)]);
+const otherPairs = Compare.suggestPairs([{ id: 1, parsed: p10 }, { id: 2, parsed: p20other }], [{ id: 9, parsed: pFam }]);
+expect("다른 과제번호 + 67% 겹침 → 안 붙임", otherPairs[2], undefined);
+const famRes = Compare.run(Compare.mergePms([p10, p20]), pFam);
+expect("계정 합산 후 IRIS 미등록 없음(새로운 제외)", famRes.summary.irisMissing, 1);
+expect("계정 합산 후 일치 4명", famRes.summary.match, 4);
+
+// ---- 재입사(새 개인번호)로 같은 이름이 두 줄 + 이름 축약(외국인) ----
+const reGrid = [...splitHead("99RR0010"),
+  pmsRow("가나다", "00001/테스트실/책임연구원", "", "26/04/01 ~ 26/12/31 : 50%", [50, 50, 50, 50, 50, 50, 50, 50, 50], "사업책임자"),
+  pmsRow("김연수", "90001/가실/연구연수생", "", "26/04/01 ~ 26/05/31 : 100%", [100, 100, 0, 0, 0, 0, 0, 0, 0]),
+  pmsRow("김연수", "90002/나실/연구연수생", "", "26/07/01 ~ 26/08/31 : 100%", [0, 0, 0, 100, 100, 0, 0, 0, 0]),
+  pmsRow("마이클", "00013/테스트실/책임연구원", "", "26/04/01 ~ 26/12/31 : 30%", [30, 30, 30, 30, 30, 30, 30, 30, 30]),
+  pmsRow("과제장", "00014/테스트실/책임연구원", "", "26/04/01 ~ 26/12/31 : 10%", [10, 10, 10, 10, 10, 10, 10, 10, 10], "과제책임자")];
+seq = 0;
+const irisRe = [...irisHead,
+  ...irisPerson(ETRI, "가나다", "수행중", [["2026-04-01", "2026-12-31", 50]]),
+  ...irisPerson(ETRI, "김연수", "수행중", [["2026-04-01", "2026-05-31", 100], ["2026-07-01", "2026-08-31", 100]]),
+  ...irisPerson(ETRI, "존마이클스미스", "수행중", [["2026-04-01", "2026-12-31", 30]]),
+  ...irisPerson(ETRI, "과제장", "수행중", [["2026-04-01", "2026-12-31", 10]])];
+const reRes = Compare.run(SystemRegistry.get("PMS").parse(reGrid), SystemRegistry.get("IRIS").parse(irisRe));
+const rr = (n) => reRes.rows.find((r) => r.name === n);
+expect("재입사 두 줄 → 한 사람으로 합쳐 일치", rr("김연수").verdict, "match");
+expect("재입사 합침 안내", rr("김연수").flags.some((f) => f.text.includes("90001")), true);
+expect("축약 이름 마이클 ↔ IRIS 긴 이름 → 일치", rr("마이클").verdict, "match");
+expect("미등록 없음", reRes.summary.oneSide, 0);
+expect("사업책임자만 맨 위", reRes.rows[0].name + (reRes.rows[0].isLead ? "*" : ""), "가나다*");
+expect("과제책임자는 계정 책임자 태그", rr("과제장").isSubLead && !rr("과제장").isLead, true);
+
 if (failed) { console.log(`\n❌ ${failed}개 실패`); process.exit(1); }
 console.log("\n✅ 스모크 테스트 통과");

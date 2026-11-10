@@ -67,6 +67,13 @@ function toSheet(aoa, styles, merges, cols, rows) {
   return ws;
 }
 
+function deptWithAccounts(p, i) {
+  const dept = p ? p.dept : (i ? i.org : "");
+  const accts = p && p.parts ? [...new Set(p.parts.map((pt) => pt.code))] : [];
+  return accts.length ? `${dept}
+[${accts.join(", ")}]` : dept;
+}
+
 function notesOf(r) {
   const notes = r.flags.map((f) => f.text);
   if (r.monthly && r.monthly.avgNote && ["avg-match", "avg-near"].includes(r.monthly.verdict)) notes.unshift(r.monthly.avgNote);
@@ -85,7 +92,7 @@ function buildSummarySheet(items) {
       const i = r.iris && !Array.isArray(r.iris) ? r.iris : null;
       const irisPeriods = i ? i.periods.map((x) => `${Period.fullDate(x.start)}~${Period.fullDate(x.end)} ${x.rate}%`).join("\n") : "";
       aoa.push([
-        it.label, r.name, p ? p.dept : (i ? i.org : ""), p ? p.rank : "", p ? p.role : (i ? i.role : ""),
+        it.label, r.name, deptWithAccounts(p, i), p ? p.rank : "", p ? p.role : (i ? i.role : ""),
         i ? i.kind : "", i ? i.status : "",
         VERDICT_TEXT[r.verdict] || r.verdict,
         r.monthly && r.monthly.mismatch ? r.monthly.mismatch : "",
@@ -111,7 +118,7 @@ function buildSummarySheet(items) {
 function buildMonthlySheet(it) {
   const res = it.result;
   const keys = res.monthKeys;
-  const head = ["성명", "소속", "판정", "구분", ...keys.map((k) => `${k.slice(2, 4)}.${k.slice(5)}`), "평균", "비고"];
+  const head = ["성명", "소속", "판정", "구분", ...keys.map((k) => `${k.slice(2, 4)}.${k.slice(5)}`), "평균 참여율", "비고"];
   const W = head.length;
   const aoa = [[`${it.label} — 실행과제 기준 (단위 %)`], [], head];
   const styles = [[XS.title], [], head.map(() => XS.head)];
@@ -143,7 +150,7 @@ function buildMonthlySheet(it) {
     lines.forEach((ln, idx) => {
       const first = idx === 0;
       aoa.push([
-        first ? r.name : "", first ? (p ? p.dept : (i ? i.org : "")) : "", first ? (VERDICT_TEXT[r.verdict] || r.verdict) : "",
+        first ? r.name : "", first ? deptWithAccounts(p, i) : "", first ? (VERDICT_TEXT[r.verdict] || r.verdict) : "",
         ln.label, ...keys.map((k) => monthsText(ln.months[k])), ln.avg, first ? notesOf(r) : "",
       ]);
       styles.push([

@@ -81,11 +81,14 @@ function resetAll() {
 function runComparison() {
   const pairs = AppState.activePairs();
   if (!pairs.length) return;
-  const items = pairs.map(({ pms, iris }) => {
-    const result = Compare.run(pms.parsed, iris.parsed);
-    const code = pms.parsed && pms.parsed.ok ? pms.parsed.meta.projectCode : "";
-    const label = (code || pms.name) + (result.ok && result.leaderName ? ` (${result.leaderName})` : "");
-    return { label, pmsName: pms.name, irisName: iris.name, result };
+  const items = pairs.map(({ pmsList, iris }) => {
+    // 실행계정이 여러 개면 PMS 파일들을 합쳐서(사람별·월별 합산) 한 과제로 대조
+    const pmsParsed = Compare.mergePms(pmsList.map((p) => p.parsed));
+    const result = Compare.run(pmsParsed, iris.parsed);
+    const code = pmsParsed && pmsParsed.ok ? pmsParsed.meta.projectCode : "";
+    const pmsName = pmsList.map((p) => p.name).join(" + ");
+    const label = (code || pmsName) + (result.ok && result.leaderName ? ` (${result.leaderName})` : "");
+    return { label, pmsName, irisName: iris.name, result, accounts: pmsList.length };
   });
   renderResults(items);
 }

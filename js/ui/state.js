@@ -35,11 +35,16 @@ window.AppState = (() => {
     for (const p of autoPms) state.pairs[p.id] = suggested[p.id] || 0;
   }
 
+  // 대조 단위 = IRIS 파일 하나. 같은 IRIS를 고른 PMS 파일(실행계정 여러 개)은 한 묶음으로 합산 대조한다.
   function activePairs() {
-    return filesOf("PMS")
-      .filter((p) => state.pairs[p.id])
-      .map((p) => ({ pms: p, iris: fileById(state.pairs[p.id]) }))
-      .filter((x) => x.iris);
+    const groups = new Map();
+    for (const p of filesOf("PMS")) {
+      const iris = state.pairs[p.id] ? fileById(state.pairs[p.id]) : null;
+      if (!iris) continue;
+      if (!groups.has(iris.id)) groups.set(iris.id, { iris, pmsList: [] });
+      groups.get(iris.id).pmsList.push(p);
+    }
+    return [...groups.values()];
   }
 
   return { state, nextFileId, filesOf, fileById, refreshPairs, activePairs };

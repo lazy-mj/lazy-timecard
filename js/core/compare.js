@@ -142,6 +142,60 @@ window.Compare = (() => {
     return m;
   }
 
+  // 같은 이름이 PMS에 여러 줄인데 참여한 달이 서로 안 겹치면 같은 사람(동·하계 연수생 재참여 등)으로 합친다.
+  // 연수생은 참여할 때마다 개인번호가 새로 나와서 개인번호로는 알 수 없다. 달이 겹치면 진짜 동명이인으로 남긴다.
+  function combineReentries(people) {
+    const byName = groupByName(people);
+    const out = [];
+    for (const list of byName.values()) {
+      if (list.length < 2) { out.push(list[0]); continue; }
+      const seen = new Set();
+      let overlap = false;
+      for (const p of list) {
+        for (const [k, v] of Object.entries(p.monthly)) {
+          if (!v.rate) continue;
+          if (seen.has(k)) overlap = true;
+          seen.add(k);
+        }
+      }
+      if (overlap) { out.push(...list); continue; }
+      const values = {};
+      for (const p of list) for (const [k, v] of Object.entries(p.monthly)) if (v.rate) values[k] = v.rate;
+      const periods = list.flatMap((p) => p.exec.periods);
+      const base = list[0];
+      out.push({
+        ...base,
+        empNo: list.map((p) => p.empNo).filter(Boolean).join(", "),
+        dept: [...new Set(list.map((p) => p.dept).filter(Boolean))].join(" / "),
+        monthly: P.monthlyValuesToMonths(values),
+        exec: { text: list.map((p) => p.exec.text).filter(Boolean).join(" / "), total: null, periods, months: P.expandToMonths(periods) },
+        agreement: list.find((p) => p.agreement.periods.length) ? list.find((p) => p.agreement.periods.length).agreement : base.agreement,
+        parts: list.flatMap((p) => p.parts || []),
+        reentry: `PMS에 ${list.length}줄로 나뉘어 있어 합쳤어요 (개인번호 ${list.map((p) => p.empNo || "-").join(" · ")}, 참여한 달이 겹치지 않음)`,
+      });
+    }
+    return out;
+  }
+
+  // 한쪽에만 있는 이름끼리, 한 이름이 다른 이름에 포함되면(PMS 마이클 ⊂ IRIS 존마이클스미스) 같은 사람으로 본다.
+  // 후보가 정확히 하나일 때만. IRIS 쪽 키를 PMS 이름으로 옮기고 안내 문구를 돌려준다.
+  function linkContainedNames(pmsByName, irisByName) {
+    const notes = new Map();
+    const pOnly = [...pmsByName.keys()].filter((k) => !irisByName.has(k) && pmsByName.get(k).length === 1);
+    const iOnly = [...irisByName.keys()].filter((k) => !pmsByName.has(k) && irisByName.get(k).length === 1);
+    const contains = (a, b) => a.length >= 2 && b.length >= 2 && (a.includes(b) || b.includes(a));
+    for (const pk of pOnly) {
+      const cands = iOnly.filter((ik) => contains(pk, ik));
+      if (cands.length !== 1) continue;
+      const ik = cands[0];
+      if (pOnly.filter((x) => contains(x, ik)).length !== 1) continue;
+      irisByName.set(pk, irisByName.get(ik));
+      irisByName.delete(ik);
+      notes.set(pk, `이름이 달라요 — PMS '${pmsByName.get(pk)[0].name}' / IRIS '${irisByName.get(pk)[0].name}'. 같은 사람으로 보고 대조했어요`);
+    }
+    return notes;
+  }
+
   function run(pmsParsed, irisParsed) {
     if (!pmsParsed.ok) return { ok: false, error: "PMS: " + pmsParsed.error };
     if (!irisParsed.ok) return { ok: false, error: "IRIS: " + irisParsed.error };
@@ -149,8 +203,10 @@ window.Compare = (() => {
       return { ok: false, error: "IRIS 파일에 한국전자통신연구원(ETRI) 연구자가 없어요. 다른 과제 파일인지 확인해주세요." };
     }
 
-    const pmsByName = groupByName(pmsParsed.people);
+    const pmsPeople = combineReentries(pmsParsed.people);
+    const pmsByName = groupByName(pmsPeople);
     const irisByName = groupByName(irisParsed.people);
+    const aliasNotes = linkContainedNames(pmsByName, irisByName);
     const otherByName = groupByName(irisParsed.others || []);
 
     // 화면에 그릴 달 범위: PMS 월별 열 + 양쪽에서 펼친 달 전부
@@ -181,6 +237,8 @@ window.Compare = (() => {
       const pms = ps[0] || null;
       const iris = is[0] || null;
       const flags = [];
+      if (pms && pms.reentry) flags.push({ level: "info", text: pms.reentry });
+      if (aliasNotes.has(key)) flags.push({ level: "warn", text: aliasNotes.get(key) });
       // 학생 구분 확인: PMS 직급이 학생연구원(위촉연구원·UST학생연구원·학연학생)인지와 IRIS 참여구분 '학생'이 서로 맞는지.
       // 동·하계 연구연수생은 학생연구원이 아니다.
       if (iris && pms) {
@@ -220,13 +278,23 @@ window.Compare = (() => {
 
     // 정렬: 과제 책임자 맨 위 → 문제 있는 사람 → 일치, 같은 판정끼리는 PMS 순서
     const rank = { mismatch: 0, duplicate: 1, period: 2, "avg-near": 2, review: 3, pmsOnly: 4, irisOnly: 5, "avg-match": 6, match: 7, nodata: 8 };
-    const pmsOrder = new Map(pmsParsed.people.map((p, i) => [norm(p.name), i]));
+    const pmsOrder = new Map(pmsPeople.map((p, i) => [norm(p.name), i]));
+    // 과제 책임자: PMS에 '사업책임자'가 있으면 그 사람만(실행계정별 '과제책임자'는 계정 책임자로 태그만).
+    // 없으면 PMS '책임자', 그것도 없으면 IRIS '연구책임자'.
+    const hasBizLead = pmsPeople.some((p) => /사업책임자/.test(p.role || ""));
+    const leadRe = hasBizLead ? /사업책임자/ : /책임자/;
+    const hasPmsLead = pmsPeople.some((p) => leadRe.test(p.role || ""));
     const isLead = (r) => {
       const p = r.pms && !Array.isArray(r.pms) ? r.pms : null;
       const i = r.iris && !Array.isArray(r.iris) ? r.iris : null;
-      return /책임자/.test((p && p.role) || "") || /연구책임자/.test((i && i.role) || "");
+      if (hasPmsLead) return !!p && leadRe.test(p.role || "");
+      return !!i && /연구책임자/.test(i.role || "");
     };
-    for (const r of rows) r.isLead = isLead(r);
+    const isSubLead = (r) => {
+      const p = r.pms && !Array.isArray(r.pms) ? r.pms : null;
+      return !!p && /책임자/.test(p.role || "") && !leadRe.test(p.role || "");
+    };
+    for (const r of rows) { r.isLead = isLead(r); r.isSubLead = isSubLead(r); }
     rows.sort((a, b) => {
       if (a.isLead !== b.isLead) return a.isLead ? -1 : 1;
       const d = (rank[a.verdict] ?? 9) - (rank[b.verdict] ?? 9);
@@ -249,11 +317,12 @@ window.Compare = (() => {
       warnings: rows.reduce((n, r) => n + r.flags.filter((f) => f.level === "warn").length, 0),
     };
 
-    const pmsLead = pmsParsed.people.find((p) => /책임자/.test(p.role || ""));
+    const pmsLead = pmsPeople.find((p) => leadRe.test(p.role || ""));
     const irisLead = irisParsed.people.find((p) => /연구책임자/.test(p.role || ""));
     return {
       ok: true,
       projectCode: pmsParsed.meta.projectCode,
+      projectCodes: pmsParsed.meta.projectCodes || [pmsParsed.meta.projectCode],
       leaderName: pmsLead ? pmsLead.name : (irisLead ? irisLead.name : ""),
       hasAgreement: pmsParsed.meta.hasAgreement,
       monthKeys,
@@ -282,13 +351,102 @@ window.Compare = (() => {
     }
     cands.sort((a, b) => b.ratio - a.ratio || b.common - a.common);
     const usedP = new Set(), usedI = new Set(), pairs = {};
+    // 1차: 1:1 로 가장 잘 맞는 쌍부터
     for (const c of cands) {
       if (usedP.has(c.pmsId) || usedI.has(c.irisId)) continue;
       usedP.add(c.pmsId); usedI.add(c.irisId);
       pairs[c.pmsId] = c.irisId;
     }
+    // 2차: 남은 PMS(한 과제를 실행계정 여러 개로 쪼갠 경우)를 같은 IRIS에 같이 붙인다 → 합산 대조.
+    //      실행계정은 과제번호 끝 두 자리만 다르다(26XX0010 / 26XX0020). 이미 그 IRIS에 붙은 PMS와 앞부분이 같으면 같은 과제로 본다.
+    //      과제번호로 알 수 없을 땐, 다른 과제가 같은 연구실 사람을 공유할 수 있으니 PMS 참여자의 80% 이상이 그 IRIS에 있을 때만.
+    const codeOf = (id) => {
+      const p = pmsList.find((x) => x.id === id);
+      return (p && p.parsed && p.parsed.ok && p.parsed.meta.projectCode) || "";
+    };
+    const familyOf = (code) => (code.length > 2 ? code.slice(0, -2) : "");
+    for (const c of cands) {
+      if (usedP.has(c.pmsId)) continue;
+      const fam = familyOf(codeOf(c.pmsId));
+      const sameFamily = fam && Object.entries(pairs).some(([pid, iid]) => iid === c.irisId && familyOf(codeOf(isNaN(pid) ? pid : Number(pid))) === fam);
+      if (!sameFamily && c.ratio < 0.8) continue;
+      usedP.add(c.pmsId);
+      pairs[c.pmsId] = c.irisId;
+    }
     return pairs;
   }
 
-  return { run, compareMonths, judge, nameOverlap, suggestPairs };
+
+  // 한 IRIS 과제를 PMS 실행계정 여러 개로 나눈 경우: PMS 파일들을 하나로 합친다.
+  //  - 같은 이름은 한 사람으로 보고 달마다 참여율을 더한다 (계정별 내역은 parts 에 남김)
+  //  - 실행과제 기간 문구는 계정별 기간을 모두 모은다 (참여기간 = 가장 이른 시작 ~ 가장 늦은 끝)
+  //  - 협약사업 칸은 계정마다 같은 협약 정보가 반복된다고 보고 더하지 않고 처음 것을 쓴다
+  //  - 한 파일 안에 같은 이름이 2명 이상이면 합치지 않고 그대로 둔다 → 동명이인으로 확인 필요
+  // 실행계정 여러 개 과제의 짧은 이름: 끝 두 자리만 다르면 "26ZZ00xx · 실행계정 5개", 아니면 "26ZZ0010 외 4개"
+  function shortCodeLabel(codes) {
+    if (codes.length < 2) return codes[0] || "";
+    const fams = [...new Set(codes.map((c) => (c.length > 2 ? c.slice(0, -2) : c)))];
+    return fams.length === 1 ? `${fams[0]}xx · 실행계정 ${codes.length}개` : `${codes[0]} 외 ${codes.length - 1}개`;
+  }
+
+  function mergePms(parsedList) {
+    const oks = parsedList.filter((p) => p && p.ok);
+    if (oks.length === 1) return oks[0];
+    if (!oks.length) return parsedList[0];
+    const codes = oks.map((p) => p.meta.projectCode || "?");
+    const monthKeys = [...new Set(oks.flatMap((p) => p.meta.monthKeys))].sort();
+    const merged = new Map();   // name -> merged person (넣은 순서 = PMS 파일 순서 유지)
+    let looseSeq = 0;
+    oks.forEach((parsed, idx) => {
+      const code = codes[idx];
+      const counts = {};
+      parsed.people.forEach((p) => { counts[norm(p.name)] = (counts[norm(p.name)] || 0) + 1; });
+      for (const p of parsed.people) {
+        // 한 파일 안에 같은 이름이 2줄 이상이면 여기선 합치지 않고 따로 둔다 (자리·계정 정보는 그대로).
+        // 재입사 두 줄인지, 진짜 동명이인인지는 run() 의 combineReentries 가 참여한 달로 판단한다.
+        const key = counts[norm(p.name)] > 1 ? `${norm(p.name)}#${looseSeq++}` : norm(p.name);
+        if (!merged.has(key)) {
+          merged.set(key, {
+            ...p,
+            monthlyValues: {},
+            parts: [],
+            exec: { text: "", total: 0, periods: [], months: {} },
+            agreement: p.agreement,
+          });
+        }
+        const m = merged.get(key);
+        if (/책임자/.test(p.role || "")) m.role = p.role;
+        if (!m.agreement.periods.length && p.agreement.periods.length) m.agreement = p.agreement;
+        for (const [k, v] of Object.entries(p.monthly)) {
+          m.monthlyValues[k] = (m.monthlyValues[k] || 0) + (v.rate || 0);
+        }
+        m.parts.push({ code, monthly: p.monthly });
+        m.exec.periods.push(...p.exec.periods);
+        m.exec.text = [m.exec.text, p.exec.text && `[${code}] ${p.exec.text}`].filter(Boolean).join(" / ");
+        m.exec.total += p.exec.total || 0;
+      }
+    });
+    const people = [...merged.values()].map((m) => {
+      const monthly = P.monthlyValuesToMonths(m.monthlyValues);
+      // 칸마다 계정별 내역 (툴팁용)
+      for (const k of Object.keys(monthly)) {
+        monthly[k].parts = m.parts.map((pt) => ({ code: pt.code, rate: pt.monthly[k] ? pt.monthly[k].rate : 0 }));
+      }
+      const exec = { ...m.exec, months: P.expandToMonths(m.exec.periods) };
+      delete m.monthlyValues;
+      return { ...m, monthly, exec };
+    });
+    return {
+      ok: true,
+      meta: {
+        projectCode: shortCodeLabel(codes),
+        projectCodes: codes,
+        monthKeys,
+        hasAgreement: oks.some((p) => p.meta.hasAgreement),
+      },
+      people,
+    };
+  }
+
+  return { run, compareMonths, judge, nameOverlap, suggestPairs, mergePms };
 })();

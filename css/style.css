@@ -726,3 +726,18 @@ tr.r-pms td.ac { border-bottom: 1px dashed #D5DCE6; }
 .modal-box:has(.usage-subhead) .modal-title { text-align: center; }
 .modal-box:has(.usage-subhead) .modal-message { font-size: 13.5px; }
 .modal-box:has(.usage-subhead) .modal-actions { position: sticky; bottom: -26px; background: var(--card); padding: 12px 0 4px; margin-bottom: -4px; }
+.pr-st.st-merge { color: #0369A1; font-weight: 700; }
+
+/* 업로드 상자 아래: 어디서 다운로드하나요? (항상 보임) */
+.where-box { margin-top: 12px; padding: 12px 14px; border-radius: 10px; background: #F7F9FC; border: 1px solid var(--border); font-size: 12.5px; color: #4B5563; line-height: 1.55; white-space: normal; display: flex; flex-direction: column; gap: 6px; }
+.where-box .wb-title { font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.where-box .wb-row { display: grid; grid-template-columns: 104px 1fr; gap: 10px; align-items: start; }
+.where-box .wb-row .dz-badge { justify-self: start; white-space: nowrap; }
+.where-box .wb-note { color: var(--text-muted); font-size: 12px; padding-top: 4px; border-top: 1px dashed var(--border); }
+@media (max-width: 640px) { .where-box .wb-row { grid-template-columns: 1fr; gap: 4px; } }
+
+.tag-sublead { background: #F1F5F9; color: #475569; }
+/* 합산 과제: 소속 아래 실행계정 태그 */
+td.dc .acct { display: flex; flex-wrap: wrap; justify-content: center; gap: 3px; margin-top: 3px; }
+td.dc .acct span { font-size: 10.5px; font-weight: 700; color: #0369A1; background: #E0F2FE; border-radius: 5px; padding: 0 5px; line-height: 17px; }
+td.dc .acct span { color: #64748B; background: #F1F5F9; font-weight: 600; }

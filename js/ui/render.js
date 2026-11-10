@@ -104,7 +104,12 @@ function renderPairs() {
     if (!chosen) status = `<span class="pr-st st-none">대조 안 함</span>`;
     else if (ov.ratio >= 0.5) status = `<span class="pr-st st-ok">일치 ${ov.common}명</span>`;
     else status = `<span class="pr-st st-bad">일치 ${ov.common}명 (PMS ${ov.total}명 중) — 다른 과제 아닐까요?</span>`;
-    if (chosen && usedCount[chosen] > 1) status += `<span class="pr-st st-bad">같은 IRIS 파일을 두 과제에 골랐어요</span>`;
+    if (chosen && usedCount[chosen] > 1) {
+      // 같은 IRIS에 PMS가 여러 개 = 한 과제를 실행계정 여러 개로 나눈 경우 → 합산 대조
+      const siblings = pmsList.filter((q) => AppState.state.pairs[q.id] === chosen)
+        .map((q) => (q.parsed && q.parsed.ok && q.parsed.meta.projectCode) || q.name);
+      status += `<span class="pr-st st-merge">실행계정 ${siblings.length}개 합산 대조 (${escapeHtml(siblings.join(" + "))})</span>`;
+    }
     const options = [`<option value="0"${chosen ? "" : " selected"}>— 대조 안 함 —</option>`,
       ...irisList.map((i) => {
         const o = Compare.nameOverlap(p.parsed, i.parsed);
@@ -143,7 +148,8 @@ function buildSummaryHtml(result, item) {
     <div class="sum-head">
       <div class="sum-title">
         <span class="proj-code">${escapeHtml(projectTitle(result, item))}</span>
-        <span class="sum-meta">ETRI 참여자 ${s.total}명 · ${range}</span>
+        <span class="sum-meta">ETRI 참여자 ${s.total}명 · ${range}${item.accounts > 1 ? ` · PMS 실행계정 ${item.accounts}개 합산` : ""}</span>
+        ${result.projectCodes && result.projectCodes.length > 1 ? `<span class="sum-meta">계정: ${escapeHtml(result.projectCodes.join(", "))}</span>` : ""}
         <span class="sum-files">${escapeHtml(item.pmsName)} ↔ ${escapeHtml(item.irisName)}</span>
       </div>
       <div class="sum-tiles">
@@ -165,7 +171,12 @@ function irisText(info) {
 }
 function segTitle(info, label) {
   if (!info) return `${label}: 없음`;
-  return `${label}: ` + info.segments.map((s) => `${Period.shortDate(s.start)}~${Period.shortDate(s.end)} ${num(s.rate)}%`).join(", ");
+  const base = `${label}: ` + info.segments.map((s) => `${Period.shortDate(s.start)}~${Period.shortDate(s.end)} ${num(s.rate)}%`).join(", ");
+  // 실행계정 여러 개를 합산한 칸이면 계정별 내역도 보여준다
+  if (info.parts && info.parts.length > 1) {
+    return base + " (" + info.parts.map((p) => `${p.code} ${num(p.rate)}`).join(" + ") + ")";
+  }
+  return base;
 }
 
 // 엑셀처럼: 한 사람 = 두 줄 (PMS 줄 / IRIS 줄). 성명·소속·판정 칸은 두 줄을 합쳐 보여준다.
@@ -204,14 +215,22 @@ function nameCell(row, rowspan) {
   const kindTag = kind && kind !== "내부연구원"
     ? `<span class="tag ${kind === "학생" ? "tag-student" : "tag-kind"}" title="IRIS 참여구분">${escapeHtml(kind)}</span>` : "";
   return `<td class="pc" rowspan="${rowspan}"${tip ? ` title="${escapeHtml(tip)}"` : ""}>
-    <span class="pn">${escapeHtml(row.name)}</span>${/책임/.test(role) ? `<span class="tag tag-lead">책임자</span>` : ""}${kindTag}${ended}</td>`;
+    <span class="pn">${escapeHtml(row.name)}</span>${row.isLead ? `<span class="tag tag-lead">책임자</span>` : row.isSubLead ? `<span class="tag tag-sublead">계정 책임자</span>` : ""}${kindTag}${ended}</td>`;
+}
+
+// 실행계정 여러 개를 합산한 과제에서, 이 사람이 들어 있는 계정 번호들
+function accountsOf(p) {
+  if (!p || !p.parts) return [];
+  return [...new Set(p.parts.map((pt) => pt.code))];
 }
 
 function deptCell(row, rowspan) {
   const p = row.pms && !Array.isArray(row.pms) ? row.pms : null;
   const i = row.iris && !Array.isArray(row.iris) ? row.iris : null;
   const dept = p ? p.dept : (i ? i.org : "");
-  return `<td class="dc" rowspan="${rowspan}" title="${escapeHtml(dept)}">${escapeHtml(dept)}</td>`;
+  const accts = accountsOf(p);
+  const acctHtml = accts.length ? `<div class="acct">${accts.map((c) => `<span>${escapeHtml(c)}</span>`).join("")}</div>` : "";
+  return `<td class="dc" rowspan="${rowspan}" title="${escapeHtml(dept)}">${escapeHtml(dept)}${acctHtml}</td>`;
 }
 
 function verdictCell(verdict, j, rowspan) {
@@ -295,7 +314,7 @@ function buildTableHtml(result, basis) {
       <table class="grid">
         <thead><tr>
           <th class="pc-h">성명</th><th class="dc-h">소속</th><th class="vc-h">판정</th><th class="src-h">구분</th>${monthHeads}
-          <th class="ac-h" title="참여기간 내 참여율 합 ÷ 참여 개월수">평균<small>참여기간</small></th>
+          <th class="ac-h" title="참여기간 내 참여율 합 ÷ 참여 개월수">평균<small>참여율</small></th>
         </tr></thead>
         ${buildRowsHtml(result, basis)}
       </table>
