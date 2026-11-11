@@ -207,7 +207,7 @@ const reRes = Compare.run(SystemRegistry.get("PMS").parse(reGrid), SystemRegistr
 const rr = (n) => reRes.rows.find((r) => r.name === n);
 expect("재입사 두 줄 → 한 사람으로 합쳐 일치", rr("김연수").verdict, "match");
 expect("재입사 합침 안내", rr("김연수").flags.some((f) => f.text.includes("90001")), true);
-expect("축약 이름 마이클 ↔ IRIS 긴 이름 → 일치", rr("마이클").verdict, "match");
+expect("축약 이름 ↔ IRIS 긴 이름 → 일치", rr("마이클").verdict, "match");
 expect("미등록 없음", reRes.summary.oneSide, 0);
 expect("사업책임자만 맨 위", reRes.rows[0].name + (reRes.rows[0].isLead ? "*" : ""), "가나다*");
 expect("과제책임자는 계정 책임자 태그", rr("과제장").isSubLead && !rr("과제장").isLead, true);

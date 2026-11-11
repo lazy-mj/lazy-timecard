@@ -171,7 +171,7 @@ function buildMonthlySheet(it) {
 }
 
 // 요약 시트: 모든 과제를 한 시트에 (맨 앞에 과제 열)
-// 월별 시트: 과제마다 하나씩 ("월별_26YY0010 (홍길동)")
+// 월별 시트: 과제마다 하나씩 ("월별_과제번호 (책임자)")
 function downloadExcel() {
   const items = AppState.state.lastResults.filter((it) => it.result.ok);
   if (!items.length) return;

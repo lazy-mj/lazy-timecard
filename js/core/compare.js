@@ -215,7 +215,7 @@ window.Compare = (() => {
     return out;
   }
 
-  // 한쪽에만 있는 이름끼리, 한 이름이 다른 이름에 포함되면(PMS 마이클 ⊂ IRIS 존마이클스미스) 같은 사람으로 본다.
+  // 한쪽에만 있는 이름끼리, 한 이름이 다른 이름에 포함되면(PMS 축약 이름 ⊂ IRIS 전체 이름, 외국인 등) 같은 사람으로 본다.
   // 후보가 정확히 하나일 때만. IRIS 쪽 키를 PMS 이름으로 옮기고 안내 문구를 돌려준다.
   function linkContainedNames(pmsByName, irisByName) {
     const notes = new Map();
@@ -401,7 +401,7 @@ window.Compare = (() => {
       pairs[c.pmsId] = c.irisId;
     }
     // 2차: 남은 PMS(한 과제를 실행계정 여러 개로 쪼갠 경우)를 같은 IRIS에 같이 붙인다 → 합산 대조.
-    //      실행계정은 과제번호 끝 두 자리만 다르다(26XX0010 / 26XX0020). 이미 그 IRIS에 붙은 PMS와 앞부분이 같으면 같은 과제로 본다.
+    //      실행계정은 과제번호 끝 두 자리만 다르다(예: ○○○○10 / ○○○○20). 이미 그 IRIS에 붙은 PMS와 앞부분이 같으면 같은 과제로 본다.
     //      과제번호로 알 수 없을 땐, 다른 과제가 같은 연구실 사람을 공유할 수 있으니 PMS 참여자의 80% 이상이 그 IRIS에 있을 때만.
     const codeOf = (id) => {
       const p = pmsList.find((x) => x.id === id);
@@ -425,7 +425,7 @@ window.Compare = (() => {
   //  - 실행과제 기간 문구는 계정별 기간을 모두 모은다 (참여기간 = 가장 이른 시작 ~ 가장 늦은 끝)
   //  - 협약사업 칸은 계정마다 같은 협약 정보가 반복된다고 보고 더하지 않고 처음 것을 쓴다
   //  - 한 파일 안에 같은 이름이 2명 이상이면 합치지 않고 그대로 둔다 → 동명이인으로 확인 필요
-  // 실행계정 여러 개 과제의 짧은 이름: 끝 두 자리만 다르면 "26ZZ00xx · 실행계정 5개", 아니면 "26ZZ0010 외 4개"
+  // 실행계정 여러 개 과제의 짧은 이름: 끝 두 자리만 다르면 "○○○○xx · 실행계정 n개", 아니면 "첫 번호 외 n개"
   function shortCodeLabel(codes) {
     if (codes.length < 2) return codes[0] || "";
     const fams = [...new Set(codes.map((c) => (c.length > 2 ? c.slice(0, -2) : c)))];
