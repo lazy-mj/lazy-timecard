@@ -18,7 +18,7 @@
   <div class="tool-hero-inner">
     <img class="tool-hero-icon" src="assets/icon-timecard.png" alt="참여율 대조 도구 아이콘">
     <h1>참여율 대조 도구</h1>
-    <p class="tool-tagline">PMS와 IRIS 인건비 참여율, 사람별·월별로 한눈에.</p>
+    <p class="tool-tagline">PMS와 IRIS, RCMS 인건비 참여율, 사람별·월별로 한번에 잡도리.</p>
     <span class="lock-note"><svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> 데이터 서버 미전송</span>
     <span class="lock-note guide-badge" id="guideBadge" role="button" tabindex="0"><svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg> 사용법 보기</span>
   </div>
@@ -40,21 +40,21 @@
   <section class="card" id="uploadCard">
     <div class="card-head">
       <h2><span class="step-badge"><svg class="icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg></span>참여인력 파일 업로드</h2>
-      <p class="desc">PMS(ETRIware) 참여인력 엑셀과 IRIS 참여연구자 엑셀을 올리면 ETRI 참여자의 참여기간·월별 참여율을 대조합니다.</p>
+      <p class="desc">PMS(ETRIware) 참여인력 엑셀과 IRIS 참여연구자 엑셀 또는 RCMS 참여인력 캡처 이미지를 올리면 ETRI 참여자의 참여기간·월별 참여율을 대조합니다.</p>
       <p class="scope-note"><svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg> IRIS 엑셀 · RCMS 화면 캡처 지원</p>
     </div>
     <div class="dropzone" id="dropzone">
       <div class="dz-icon"><svg class="icon-svg" width="26" height="26" viewBox="0 0 24 24"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg></div>
-      <div class="dz-label">PMS·IRIS 참여인력 엑셀 파일을 여기로 끌어다 놓거나 클릭해서 업로드하세요</div>
+      <div class="dz-label">PMS·IRIS 엑셀이나 RCMS 캡처 이미지를 여기로 끌어다 놓거나 클릭해서 업로드하세요</div>
       <div class="dz-hint">RCMS는 참여연구자 화면을 캡처해서 끌어다 놓거나 <b>Ctrl+V</b>로 붙여넣으세요 (여러 장 겹쳐 찍어도 돼요)</div>
       <div class="dz-hint">여러 과제 파일을 한 번에 드래그해도 자동으로 구분하고, 이름이 겹치는 파일끼리 짝지어 둡니다</div>
       <input type="file" id="fileInput" accept=".xlsx,.xls,.xlsm,image/*" multiple>
     </div>
     <div class="where-box">
       <div class="wb-title"><svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg> 어디서 다운로드하나요?</div>
-      <div class="wb-row"><span class="dz-badge badge-pms">PMS 참여인력</span><span>과제관리 › 사업관리 › 실행과제관리 › 실행계획서관리 › 과제조회 후 더블클릭(실행과제마스터) › 참여인력 탭 › 우측상단 <b>[엑셀변환]</b></span></div>
-      <div class="wb-row"><span class="dz-badge badge-iris">IRIS 참여연구자</span><span>R&amp;D업무포털 › 과제수행 › 협약변경 › (승인통보)협약변경신청 › 과제조회 › 과제명 앞 네모 버튼 › 통합과제 팝업 › 수행정보 › 연차별수행정보 › 참여연구원 탭 › 당해 연구개발기간 선택 › 우측상단 <b>[엑셀]</b></span></div>
-      <div class="wb-row"><span class="dz-badge badge-rcms">RCMS 참여연구자</span><span>협약정보확인 › 과제선택 › 참여연구자 탭 › 스크롤하며 전체 인원 <b>화면 캡처</b>(겹쳐도 됨) · 끌어다 놓기 또는 <b>Ctrl+V</b></span></div>
+      <div class="wb-row"><span class="dz-badge badge-pms">PMS(ETRIware)</span><span>과제관리 › 사업관리 › 실행과제관리 › 실행계획서관리 › 과제조회 후 더블클릭(실행과제마스터) › 참여인력 탭 › 우측상단 <b>[엑셀변환]</b></span></div>
+      <div class="wb-row"><span class="dz-badge badge-iris">IRIS</span><span>R&amp;D업무포털 › 과제수행 › 협약변경 › (승인통보)협약변경신청 › 과제조회 › 과제명 앞 네모 버튼 › 통합과제 팝업 › 수행정보 › 연차별수행정보 › 참여연구원 탭 › 당해 연구개발기간 선택 › 우측상단 <b>[엑셀]</b></span></div>
+      <div class="wb-row"><span class="dz-badge badge-rcms">RCMS</span><span>협약정보확인 › 과제선택 › 참여연구자 탭 › 스크롤하며 전체 인원 <b>화면 캡처</b>(겹쳐도 됨) · 끌어다 놓기 또는 <b>Ctrl+V</b></span></div>
       <div class="wb-note">실행계정이 여러 개(예: XX10, XX20)인 경우 계정별 엑셀을 모두 올려주세요. 같은 IRIS 과제로 묶어 합산 대조합니다.</div>
     </div>
     <div class="file-chips" id="fileChips"></div>
@@ -81,6 +81,8 @@
     <p class="foot-note">모든 대조는 이 브라우저 안에서만 이루어지며 업로드한 파일은 어디로도 전송되지 않습니다. 새로고침하면 업로드한 파일과 결과는 모두 사라집니다.</p>
     <div class="foot-links">
       <span class="foot-contact"><svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>문의 및 수정사항 제보 : 전민지</span>
+      <span class="divider"></span>
+      <a class="repo-link" href="https://github.com/lazy-mj/lazy-timecard" target="_blank" rel="noopener"><svg class="icon-svg" width="15" height="15" viewBox="0 0 24 24"><g fill="currentColor" stroke="none"><path d="M12 2C6.48 2 2 6.58 2 12.17c0 4.47 2.87 8.26 6.84 9.6.5.1.68-.22.68-.48 0-.24-.01-1.02-.01-1.85-2.78.62-3.37-1.19-3.37-1.19-.45-1.17-1.11-1.48-1.11-1.48-.91-.63.07-.62.07-.62 1 .07 1.53 1.05 1.53 1.05.89 1.55 2.34 1.1 2.91.84.09-.66.35-1.1.63-1.36-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05a9.3 9.3 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.79-4.57 5.05.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .27.18.59.69.48A10.02 10.02 0 0 0 22 12.17C22 6.58 17.52 2 12 2Z"/></g></svg> GitHub 저장소 방문하기</a>
     </div>
   </footer>
 
