@@ -491,5 +491,6 @@ window.Compare = (() => {
     };
   }
 
-  return { run, compareMonths, judge, nameOverlap, suggestPairs, mergePms };
+  const isStudentRank = (rank) => STUDENT_RANK.test(norm(rank));
+  return { run, compareMonths, judge, nameOverlap, suggestPairs, mergePms, isStudentRank };
 })();

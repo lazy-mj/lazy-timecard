@@ -161,7 +161,7 @@ window.RcmsUi = (() => {
       <div class="rc-head">
         <span class="dz-badge badge-rcms">RCMS 캡처</span>
         <b>${imgs.length}장</b>
-        <span class="rc-hint">겹치게 찍은 줄은 생년월일로 한 줄로 합쳐요. 노란 칸만 원본 캡처와 비교해 확인해 주세요.</span>
+        <span class="rc-hint">스크린샷에서 중복 캡처된 사람도 한 명으로 인식해요. 원본 캡처와 비교하여 잘못 인식된 내용(이름, 계상률, 참여시작일, 종료일)은 아래 표에서 직접 확인해주세요.</span>
         <button class="btn btn-outline rc-clear" data-rc-clear>캡처 모두 빼기</button>
       </div>
       <div class="rc-thumbs">${thumbs}</div>

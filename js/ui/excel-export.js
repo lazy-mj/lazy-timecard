@@ -120,7 +120,7 @@ function buildMonthlySheet(it) {
   const keys = res.monthKeys;
   const head = ["성명", "소속", "판정", "구분", ...keys.map((k) => `${k.slice(2, 4)}.${k.slice(5)}`), "평균 참여율", "비고"];
   const W = head.length;
-  const aoa = [[`${it.label} — 실행과제 기준 (단위 %)`], [], head];
+  const aoa = [[`${it.label} — 실행과제 기준 · PMS ↔ ${res.ext || "IRIS"} (단위 %)`], [], head];
   const styles = [[XS.title], [], head.map(() => XS.head)];
   const merges = [{ s: { r: 0, c: 0 }, e: { r: 0, c: W - 1 } }];
 
@@ -145,7 +145,7 @@ function buildMonthlySheet(it) {
     if (res.hasAgreement && p && p.agreement.periods.length) {
       lines.push({ label: "PMS 협약", style: XS.srcAgr, months: p.agreement.months, avg: "", agreement: true });
     }
-    lines.push({ label: "IRIS", style: XS.srcIris, months: i ? i.months : {}, avg: r.monthly ? r.monthly.irisAvg : "" });
+    lines.push({ label: res.ext || "IRIS", style: XS.srcIris, months: i ? i.months : {}, avg: r.monthly ? r.monthly.irisAvg : "" });
 
     lines.forEach((ln, idx) => {
       const first = idx === 0;

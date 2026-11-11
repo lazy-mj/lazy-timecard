@@ -214,7 +214,9 @@ function nameCell(row, rowspan) {
   const tip = [p && p.rank, p && p.empNo ? `개인번호 ${p.empNo}` : "", i && i.researcherNo ? `국가연구자번호 ${i.researcherNo}` : ""].filter(Boolean).join(" · ");
   const kind = i && i.kind ? i.kind.replace(/\s/g, "") : "";
   const kindTag = kind && kind !== "내부연구원"
-    ? `<span class="tag ${kind === "학생" ? "tag-student" : "tag-kind"}" title="IRIS 참여구분">${escapeHtml(kind)}</span>` : "";
+    ? `<span class="tag ${kind === "학생" ? "tag-student" : "tag-kind"}" title="IRIS 참여구분">${escapeHtml(kind)}</span>`
+    : (i && i.source === "RCMS" && p && Compare.isStudentRank(p.rank))
+      ? `<span class="tag tag-student" title="RCMS엔 참여구분이 없어 PMS 직급(${escapeHtml(p.rank)})으로 표시">학생연구원</span>` : "";
   return `<td class="pc" rowspan="${rowspan}"${tip ? ` title="${escapeHtml(tip)}"` : ""}>
     <span class="pn">${escapeHtml(row.name)}</span>${row.isLead ? `<span class="tag tag-lead">책임자</span>` : row.isSubLead ? `<span class="tag tag-sublead">계정 책임자</span>` : ""}${kindTag}${ended}</td>`;
 }
@@ -286,7 +288,7 @@ function buildRowsHtml(result, basis) {
       const irisCells = keys.map((k) => monthCell(statusClass(statusOf(k)), pmsMonths[k], irisMonths[k], "IRIS", result.ext)).join("");
       const span = notes.length ? 3 : 2;
       html += `<tr class="r-pms${zebra}">${nameCell(row, span)}${deptCell(row, span)}${verdictCell(verdict, j, span, result.ext)}${srcCell(pmsLabel, "src-pms")}${pmsCells}${pAvg}</tr>`;
-      html += `<tr class="r-iris${zebra}">${srcCell(result.ext === "RCMS" ? "RCMS<small>계상률</small>" : "IRIS", result.ext === "RCMS" ? "src-rcms" : "src-iris")}${irisCells}${iAvg}</tr>`;
+      html += `<tr class="r-iris${zebra}">${srcCell(result.ext === "RCMS" ? "RCMS" : "IRIS", result.ext === "RCMS" ? "src-rcms" : "src-iris")}${irisCells}${iAvg}</tr>`;
     } else {
       const list = [
         ...row.pms.map((p) => `PMS ${escapeHtml(p.empNo || "")} ${escapeHtml(p.dept || "")}`),
@@ -318,7 +320,7 @@ function buildTableHtml(result, basis) {
       <table class="grid">
         <thead><tr>
           <th class="pc-h">성명</th><th class="dc-h">소속</th><th class="vc-h">판정</th><th class="src-h">구분</th>${monthHeads}
-          <th class="ac-h" title="참여기간 내 참여율 합 ÷ 참여 개월수">평균<small>참여율</small></th>
+          <th class="ac-h" title="참여기간 내 참여율 합 ÷ 참여 개월수">평균<br>참여율</th>
         </tr></thead>
         ${buildRowsHtml(result, basis)}
       </table>

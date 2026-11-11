@@ -773,3 +773,5 @@ table.rc-table td.warn input { font-weight: 700; color: #8A5A00; }
 /* 결과표: RCMS 줄 */
 td.src-rcms { color: #5E35B1; background: #F6F3FD; }
 .rc-table-wrap { max-height: 460px; overflow-y: auto; }
+
+table.grid th.ac-h { line-height: 1.25; }
