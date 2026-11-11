@@ -1,7 +1,7 @@
 // ============================================================
 // ui/state.js
 // 앱 전역 상태. DOM을 건드리지 않는다.
-// 과제 1개 = PMS 1개 + IRIS 1개. 여러 과제를 올리면 PMS마다 IRIS 짝을 고른다.
+// 과제 1개 = PMS(실행계정 1개 이상) + 외부시스템 1개(IRIS 엑셀 또는 RCMS 캡처 묶음).
 // ============================================================
 
 window.AppState = (() => {
@@ -12,16 +12,20 @@ window.AppState = (() => {
     resultShown: false,
     lastResults: [],    // [{ label, pmsName, irisName, result }] - 엑셀 내보내기가 이 데이터를 사용
     basis: "monthly",   // 결과 표 기준: "monthly"(월별 인건비 참여율) | "agreement"(협약사업)
+    // RCMS 캡처 묶음 (엑셀이 없어서 캡처를 글자 인식). 확인표 내용은 files 안의 가상 항목(type "RCMS")으로 대조에 들어간다.
+    rcms: { images: [], rows: [], edited: false, busy: false, fileId: null },
   };
   let fileIdSeq = 1;
   function nextFileId() { return fileIdSeq++; }
   function filesOf(type) { return state.files.filter((f) => f.type === type); }
   function fileById(id) { return state.files.find((f) => f.id === id) || null; }
+  // 외부시스템 쪽 (IRIS 엑셀 + RCMS 캡처 묶음)
+  function externalFiles() { return state.files.filter((f) => f.type === "IRIS" || f.type === "RCMS"); }
 
   // 파일 목록이 바뀔 때마다: 사라진 파일 짝 정리 + 직접 고르지 않은 PMS는 자동 추천으로 채움
   function refreshPairs() {
     const pmsList = filesOf("PMS");
-    const irisList = filesOf("IRIS");
+    const irisList = externalFiles();
     const irisIds = new Set(irisList.map((f) => f.id));
     for (const key of Object.keys(state.pairs)) {
       const pmsId = Number(key);
@@ -47,5 +51,5 @@ window.AppState = (() => {
     return [...groups.values()];
   }
 
-  return { state, nextFileId, filesOf, fileById, refreshPairs, activePairs };
+  return { state, nextFileId, filesOf, fileById, externalFiles, refreshPairs, activePairs };
 })();

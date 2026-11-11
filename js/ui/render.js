@@ -14,7 +14,7 @@ const VERDICT = {
   "avg-near": { text: "평균 근사",   cls: "v-warn",   icon: "alert" },
   review:     { text: "확인 필요",   cls: "v-warn",   icon: "alert" },
   duplicate:  { text: "동명이인",    cls: "v-warn",   icon: "alert" },
-  pmsOnly:    { text: "IRIS 미등록", cls: "v-side",   icon: "minus" },
+  pmsOnly:    { text: "외부 미등록", cls: "v-side",   icon: "minus" },
   irisOnly:   { text: "PMS 미등록",  cls: "v-side",   icon: "minus" },
   nodata:     { text: "자료 없음",   cls: "v-side",   icon: "minus" },
 };
@@ -42,12 +42,13 @@ function monthLabel(key) { return `${Number(key.slice(5))}월`; }
 function badgeInfo(type) {
   if (type === "PMS") return { text: "PMS(내부망)", cls: "badge-pms" };
   if (type === "IRIS") return { text: "IRIS(외부)", cls: "badge-iris" };
+  if (type === "RCMS") return { text: "RCMS 캡처", cls: "badge-rcms" };
   return { text: "⚠ 참여인력 파일이 맞는지 확인해주세요", cls: "unknown" };
 }
 
 function renderChips() {
   const wrap = $("#fileChips");
-  wrap.innerHTML = AppState.state.files.map((f) => {
+  wrap.innerHTML = AppState.state.files.filter((f) => !f.virtual).map((f) => {
     let badge;
     if (f.type === "분석중") badge = `<span class="dz-badge">분석 중...</span>`;
     else if (f.type === "ERROR") badge = `<span class="dz-badge unknown">⚠ 파일을 읽을 수 없어요</span>`;
@@ -70,17 +71,17 @@ function updateRunState() {
   const btn = $("#runBtn");
   const label = btn.querySelector(".btn-label");
   const pmsN = AppState.filesOf("PMS").length;
-  const irisN = AppState.filesOf("IRIS").length;
+  const irisN = AppState.externalFiles().length;
   const pairs = AppState.activePairs().length;
   btn.disabled = pairs === 0;
   label.textContent = pairs > 1 ? `대조 실행 (${pairs}개 과제)` : "대조 실행";
-  if (!AppState.state.files.length) { hint.textContent = ""; AppCore.stepper.set(1); return; }
+  if (!AppState.state.files.length && !AppState.state.rcms.images.length) { hint.textContent = ""; AppCore.stepper.set(1); return; }
   if (!pmsN || !irisN) {
-    hint.textContent = pmsN ? "IRIS 참여연구자 엑셀도 올려주세요." : irisN ? "PMS 참여인력 엑셀도 올려주세요." : "PMS·IRIS 참여인력 엑셀이 필요합니다.";
+    hint.textContent = pmsN ? "IRIS 참여연구자 엑셀이나 RCMS 캡처도 올려주세요." : irisN ? "PMS 참여인력 엑셀도 올려주세요." : "PMS 참여인력 엑셀과 IRIS 엑셀(또는 RCMS 캡처)이 필요합니다.";
     AppCore.stepper.set(1);
     return;
   }
-  hint.textContent = pairs ? "" : "짝이 지어진 과제가 없어요. 아래에서 IRIS 파일을 골라주세요.";
+  hint.textContent = pairs ? "" : "짝이 지어진 과제가 없어요. 아래에서 IRIS 파일이나 RCMS 캡처를 골라주세요.";
   AppCore.stepper.set(pairs ? 2 : 1);
 }
 
@@ -88,7 +89,7 @@ function updateRunState() {
 function renderPairs() {
   const wrap = $("#pairArea");
   const pmsList = AppState.filesOf("PMS");
-  const irisList = AppState.filesOf("IRIS");
+  const irisList = AppState.externalFiles();
   if (!pmsList.length || !irisList.length) { wrap.innerHTML = ""; return; }
   const usedCount = {};
   for (const p of pmsList) {
@@ -113,16 +114,16 @@ function renderPairs() {
     const options = [`<option value="0"${chosen ? "" : " selected"}>— 대조 안 함 —</option>`,
       ...irisList.map((i) => {
         const o = Compare.nameOverlap(p.parsed, i.parsed);
-        return `<option value="${i.id}"${i.id === chosen ? " selected" : ""}>${escapeHtml(i.name)} (일치 ${o.common}명)</option>`;
+        return `<option value="${i.id}"${i.id === chosen ? " selected" : ""}>${i.type === "RCMS" ? "[RCMS] " : ""}${escapeHtml(i.name)} (일치 ${o.common}명)</option>`;
       })].join("");
     return `<div class="pair-row">
       <div class="pr-pms"><span class="dz-badge badge-pms">PMS</span>${code ? `<b class="pr-code">${escapeHtml(code)}</b>` : ""}<span class="pr-file" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</span></div>
       <span class="pr-arrow">↔</span>
-      <div class="pr-iris"><span class="dz-badge badge-iris">IRIS</span><select data-pair="${p.id}" aria-label="${escapeHtml(code || p.name)} 과제의 IRIS 파일">${options}</select></div>
+      <div class="pr-iris"><span class="dz-badge ${irisFile && irisFile.type === "RCMS" ? "badge-rcms" : "badge-iris"}">${irisFile && irisFile.type === "RCMS" ? "RCMS" : "IRIS"}</span><select data-pair="${p.id}" aria-label="${escapeHtml(code || p.name)} 과제의 IRIS 파일">${options}</select></div>
       <div class="pr-status">${status}</div>
     </div>`;
   }).join("");
-  const counts = pmsList.length > 1 || irisList.length > 1 ? ` <span>PMS ${pmsList.length}개 · IRIS ${irisList.length}개</span>` : "";
+  const counts = pmsList.length > 1 || irisList.length > 1 ? ` <span>PMS ${pmsList.length}개 · 외부 ${irisList.length}개</span>` : "";
   wrap.innerHTML = `<div class="pair-title">대조할 과제${counts}</div>${rows}`;
   wrap.querySelectorAll("[data-pair]").forEach((sel) => {
     sel.addEventListener("change", () => setPair(Number(sel.dataset.pair), Number(sel.value)));
@@ -156,7 +157,7 @@ function buildSummaryHtml(result, item) {
         ${tile("t-ok", "일치", s.match, s.avgMatch ? `연평균 입력 ${s.avgMatch}명 포함` : "")}
         ${tile("t-bad", "불일치", s.mismatch, result.hasAgreement ? `협약 기준 ${s.agreementMismatch}명` : "")}
         ${tile("t-warn", "확인 필요", s.review, s.periodOnly ? `참여기간 차이 ${s.periodOnly}명 포함` : "참여기간 차이·동명이인 등")}
-        ${tile("t-side", "미등록", s.oneSide, s.oneSide ? [s.irisMissing ? `IRIS 미등록 ${s.irisMissing}명` : "", s.pmsMissing ? `PMS 미등록 ${s.pmsMissing}명` : ""].filter(Boolean).join(" · ") : "한 곳에만 있는 사람")}
+        ${tile("t-side", "미등록", s.oneSide, s.oneSide ? [s.irisMissing ? `${result.ext || "IRIS"} 미등록 ${s.irisMissing}명` : "", s.pmsMissing ? `PMS 미등록 ${s.pmsMissing}명` : ""].filter(Boolean).join(" · ") : "한 곳에만 있는 사람")}
       </div>
     </div>
   `;
@@ -190,13 +191,13 @@ function sideValue(info, otherInfo) {
 
 // pmsInfo/irisInfo: 그 달의 양쪽 정보. side: 이 칸이 보여줄 쪽("PMS"|"IRIS")
 // ◐(한 달 일부만 참여)는 어느 한쪽만 부분이어도 두 칸 모두에 표시하고, 툴팁엔 양쪽 날짜를 다 보여준다.
-function monthCell(cls, pmsInfo, irisInfo, side) {
+function monthCell(cls, pmsInfo, irisInfo, side, extLabel = "IRIS") {
   const info = side === "PMS" ? pmsInfo : irisInfo;
   const other = side === "PMS" ? irisInfo : pmsInfo;
   const has = (x) => x && x.rate !== 0;
   const isPartial = (has(pmsInfo) && pmsInfo.partial) || (has(irisInfo) && irisInfo.partial);
   const partial = isPartial ? `<span class="half" aria-label="부분 참여">◐</span>` : "";
-  const title = has(pmsInfo) || has(irisInfo) ? ` title="${escapeHtml(segTitle(pmsInfo, "PMS") + "\n" + segTitle(irisInfo, "IRIS"))}"` : "";
+  const title = has(pmsInfo) || has(irisInfo) ? ` title="${escapeHtml(segTitle(pmsInfo, "PMS") + "\n" + segTitle(irisInfo, extLabel))}"` : "";
   return `<td class="mc ${cls}"${title}>${sideValue(info, other)}${partial}</td>`;
 }
 
@@ -233,10 +234,13 @@ function deptCell(row, rowspan) {
   return `<td class="dc" rowspan="${rowspan}" title="${escapeHtml(dept)}">${escapeHtml(dept)}${acctHtml}</td>`;
 }
 
-function verdictCell(verdict, j, rowspan) {
+function verdictCell(verdict, j, rowspan, ext = "IRIS") {
   const v = VERDICT[verdict] || VERDICT.review;
-  const extra = j && verdict === "mismatch" ? `<div class="vd-sub">${j.mismatch}개월 다름</div>` : "";
-  return `<td class="vc" rowspan="${rowspan}"><span class="vbadge ${v.cls}">${icon(v.icon, 12)}${v.text}</span>${extra}</td>`;
+  const text = verdict === "pmsOnly" ? `${ext} 미등록` : v.text;
+  // RCMS(연평균만)는 달 수 대신 평균이 다르다는 걸 보여준다
+  const extra = j && verdict === "mismatch"
+    ? `<div class="vd-sub">${ext === "RCMS" ? (j.baseAvg !== j.irisAvg ? "평균 다름" : "참여 달 다름") : `${j.mismatch}개월 다름`}</div>` : "";
+  return `<td class="vc" rowspan="${rowspan}"><span class="vbadge ${v.cls}">${icon(v.icon, 12)}${text}</span>${extra}</td>`;
 }
 
 function srcCell(text, cls) { return `<td class="src ${cls}">${text}</td>`; }
@@ -267,7 +271,7 @@ function buildRowsHtml(result, basis) {
         if (verdict === "avg-near" && j.avgNote) notes.unshift({ level: "warn", text: j.avgNote });
       } else if (row.kind === "pmsOnly") {
         pmsMonths = basis === "agreement" ? row.pms.agreement.months : row.pms.monthly;
-        notes.unshift({ level: "warn", text: "IRIS(한국전자통신연구원)에서 이 이름을 찾지 못했어요" });
+        notes.unshift({ level: "warn", text: result.ext === "RCMS" ? "RCMS 캡처에서 이 이름을 찾지 못했어요" : "IRIS(한국전자통신연구원)에서 이 이름을 찾지 못했어요" });
       } else {
         irisMonths = row.iris.months;
         notes.unshift({ level: "warn", text: "PMS 참여인력 목록에 없는 사람이에요" });
@@ -279,10 +283,10 @@ function buildRowsHtml(result, basis) {
       };
       const [pAvg, iAvg] = avgPair(j);
       const pmsCells = keys.map((k) => monthCell(statusClass(statusOf(k)), pmsMonths[k], irisMonths[k], "PMS")).join("");
-      const irisCells = keys.map((k) => monthCell(statusClass(statusOf(k)), pmsMonths[k], irisMonths[k], "IRIS")).join("");
+      const irisCells = keys.map((k) => monthCell(statusClass(statusOf(k)), pmsMonths[k], irisMonths[k], "IRIS", result.ext)).join("");
       const span = notes.length ? 3 : 2;
-      html += `<tr class="r-pms${zebra}">${nameCell(row, span)}${deptCell(row, span)}${verdictCell(verdict, j, span)}${srcCell(pmsLabel, "src-pms")}${pmsCells}${pAvg}</tr>`;
-      html += `<tr class="r-iris${zebra}">${srcCell("IRIS", "src-iris")}${irisCells}${iAvg}</tr>`;
+      html += `<tr class="r-pms${zebra}">${nameCell(row, span)}${deptCell(row, span)}${verdictCell(verdict, j, span, result.ext)}${srcCell(pmsLabel, "src-pms")}${pmsCells}${pAvg}</tr>`;
+      html += `<tr class="r-iris${zebra}">${srcCell(result.ext === "RCMS" ? "RCMS<small>계상률</small>" : "IRIS", result.ext === "RCMS" ? "src-rcms" : "src-iris")}${irisCells}${iAvg}</tr>`;
     } else {
       const list = [
         ...row.pms.map((p) => `PMS ${escapeHtml(p.empNo || "")} ${escapeHtml(p.dept || "")}`),

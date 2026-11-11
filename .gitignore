@@ -3,3 +3,6 @@
 *.xls
 *.xlsm
 !js/vendor/**
+
+# 개발용 실제 캡처·자료 (개인정보) — 올리지 않음
+tests/private/

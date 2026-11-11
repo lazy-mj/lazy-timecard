@@ -67,8 +67,8 @@ window.Compare = (() => {
 
   // 기준 하나(월별 또는 협약)에 대한 판정
   // basePeriods: PMS 쪽 일 단위 기간(월별 기준이면 실행과제 문구, 협약 기준이면 협약사업 문구) - 참여기간 비교용
-  function judge(baseMonths, irisPerson, keys, basePeriods) {
-    const out = judgeRates(baseMonths, irisPerson, keys);
+  function judge(baseMonths, irisPerson, keys, basePeriods, opts = {}) {
+    const out = opts.avgOnly ? judgeAvgOnly(baseMonths, irisPerson, keys) : judgeRates(baseMonths, irisPerson, keys, opts.ext || "IRIS");
     // 참여기간(시작일·종료일) 비교. 월별 참여율이 같아도 날짜가 다르면 '기간 다름'
     const ra = dayRange(basePeriods), rb = dayRange(irisPerson.periods);
     const ratesAgree = ["match", "avg-match", "avg-near"].includes(out.verdict);
@@ -89,7 +89,45 @@ window.Compare = (() => {
     return out;
   }
 
-  function judgeRates(baseMonths, irisPerson, keys) {
+  // RCMS 처럼 외부시스템에 연평균 참여율만 있을 때: 달마다 값은 비교하지 않고
+  //  (1) 참여한 달이 서로 같은지  (2) PMS 참여기간 평균 = 외부 계상률 인지로 판정한다.
+  function judgeAvgOnly(baseMonths, ext, keys) {
+    const baseAvg = P.averageRate(baseMonths);
+    const extRate = ext.periods.length ? ext.periods[0].rate : 0;
+    const avgEqual = Math.abs(baseAvg.avg - extRate) < EPS;
+    const avgNear = !avgEqual && Math.abs(baseAvg.avg - extRate) < 1 && Math.round(baseAvg.avg) === Math.round(extRate);
+    const cells = {};
+    let mismatch = 0, partial = 0, compared = 0;
+    for (const k of keys) {
+      const a = baseMonths[k], b = ext.months[k];
+      const aOn = a && a.rate > 0, bOn = b && b.rate > 0;
+      if (!aOn && !bOn) { cells[k] = { status: "none", base: a || null, iris: b || null }; continue; }
+      compared++;
+      const isPartial = !!((a && a.partial) || (b && b.partial));
+      if (isPartial) partial++;
+      let status = "match";
+      if (aOn !== bOn || (!avgEqual && !avgNear)) status = "mismatch";
+      else if (avgNear) status = "review";
+      if (status === "mismatch") mismatch++;
+      cells[k] = { status, partial: isPartial, base: a || null, iris: b || null };
+    }
+    const onlyOneSide = keys.some((k) => !!(baseMonths[k] && baseMonths[k].rate > 0) !== !!(ext.months[k] && ext.months[k].rate > 0));
+    const out = {
+      cells, mismatch, review: avgNear ? compared : 0, partial, compared,
+      baseAvg: round2(baseAvg.avg), baseMonthsCount: baseAvg.count,
+      irisAvg: round2(extRate), irisMonthsCount: Object.keys(ext.months).length,
+      verdict: "match", avgNote: "",
+    };
+    if (!Object.keys(baseMonths).length) { out.verdict = "nodata"; return out; }
+    if (onlyOneSide || (!avgEqual && !avgNear)) out.verdict = "mismatch";
+    else if (avgNear) {
+      out.verdict = "avg-near";
+      out.avgNote = `RCMS 계상률 ${extRate}% ≈ PMS 평균 ${round2(baseAvg.avg)}% (${baseAvg.count}개월) — 반올림 차이인지 확인해주세요`;
+    }
+    return out;
+  }
+
+  function judgeRates(baseMonths, irisPerson, keys, extLabel = "IRIS") {
     const res = compareMonths(baseMonths, irisPerson.months, keys);
     const baseAvg = P.averageRate(baseMonths);
     const irisAvg = P.averageRate(irisPerson.months);
@@ -112,13 +150,13 @@ window.Compare = (() => {
       const irisRate = irisPerson.periods.find((p) => p.rate > 0).rate;
       if (sameRange && Math.abs(baseAvg.avg - irisRate) < EPS) {
         out.verdict = "avg-match";
-        out.avgNote = `IRIS에 연평균(${irisRate}%)으로 입력됨 · PMS 평균 ${round2(baseAvg.avg)}% (${baseAvg.count}개월)`;
+        out.avgNote = `${extLabel}에 연평균(${irisRate}%)으로 입력됨 · PMS 평균 ${round2(baseAvg.avg)}% (${baseAvg.count}개월)`;
         return out;
       }
       // IRIS 연평균이 PMS 평균을 반올림한 값처럼 보이면(예: 42.5 → 43) 불일치 대신 확인 필요
       if (sameRange && Math.abs(baseAvg.avg - irisRate) < 1 && Math.round(baseAvg.avg) === Math.round(irisRate)) {
         out.verdict = "avg-near";
-        out.avgNote = `IRIS 연평균 ${irisRate}% ≈ PMS 평균 ${round2(baseAvg.avg)}% (${baseAvg.count}개월) — 반올림 차이인지 확인해주세요`;
+        out.avgNote = `${extLabel} 연평균 ${irisRate}% ≈ PMS 평균 ${round2(baseAvg.avg)}% (${baseAvg.count}개월) — 반올림 차이인지 확인해주세요`;
         return out;
       }
     }
@@ -191,14 +229,16 @@ window.Compare = (() => {
       if (pOnly.filter((x) => contains(x, ik)).length !== 1) continue;
       irisByName.set(pk, irisByName.get(ik));
       irisByName.delete(ik);
-      notes.set(pk, `이름이 달라요 — PMS '${pmsByName.get(pk)[0].name}' / IRIS '${irisByName.get(pk)[0].name}'. 같은 사람으로 보고 대조했어요`);
+      notes.set(pk, `이름이 달라요 — PMS '${pmsByName.get(pk)[0].name}' / 외부 '${irisByName.get(pk)[0].name}'. 같은 사람으로 보고 대조했어요`);
     }
     return notes;
   }
 
   function run(pmsParsed, irisParsed) {
     if (!pmsParsed.ok) return { ok: false, error: "PMS: " + pmsParsed.error };
-    if (!irisParsed.ok) return { ok: false, error: "IRIS: " + irisParsed.error };
+    const EXT = (irisParsed.meta && irisParsed.meta.system) || "IRIS";
+    const avgOnly = !!(irisParsed.meta && irisParsed.meta.avgOnly);
+    if (!irisParsed.ok) return { ok: false, error: EXT + ": " + irisParsed.error };
     if (!irisParsed.people.length) {
       return { ok: false, error: "IRIS 파일에 한국전자통신연구원(ETRI) 연구자가 없어요. 다른 과제 파일인지 확인해주세요." };
     }
@@ -228,7 +268,7 @@ window.Compare = (() => {
       if (dup) {
         rows.push({
           kind: "duplicate", name: ps[0] ? ps[0].name : is[0].name,
-          pms: ps, iris: is, flags: [{ level: "warn", text: `동명이인 확인 필요 (PMS ${ps.length}명 · IRIS ${is.length}명) — 자동 대조하지 않았어요` }],
+          pms: ps, iris: is, flags: [{ level: "warn", text: `동명이인 확인 필요 (PMS ${ps.length}명 · ${EXT} ${is.length}명) — 자동 대조하지 않았어요` }],
           verdict: "duplicate",
         });
         continue;
@@ -241,7 +281,7 @@ window.Compare = (() => {
       if (aliasNotes.has(key)) flags.push({ level: "warn", text: aliasNotes.get(key) });
       // 학생 구분 확인: PMS 직급이 학생연구원(위촉연구원·UST학생연구원·학연학생)인지와 IRIS 참여구분 '학생'이 서로 맞는지.
       // 동·하계 연구연수생은 학생연구원이 아니다.
-      if (iris && pms) {
+      if (iris && pms && !avgOnly) { // RCMS 화면엔 참여구분(학생)이 없어서 건너뜀
         const irisStudent = norm(iris.kind) === "학생";
         const pmsStudent = STUDENT_RANK.test(norm(pms.rank));
         if (irisStudent && !pmsStudent) {
@@ -251,11 +291,11 @@ window.Compare = (() => {
         }
       }
       if (iris && iris.status && norm(iris.status) !== "수행중") {
-        flags.push({ level: pms ? "warn" : "info", text: `IRIS 수행구분이 '${iris.status}'이에요${pms ? " — PMS에는 참여 중으로 있어요" : ""}` });
+        flags.push({ level: pms ? "warn" : "info", text: `${EXT} 수행구분이 '${iris.status}'이에요${pms ? " — PMS에는 참여 중으로 있어요" : ""}` });
       }
 
       if (pms && !iris) {
-        if (elsewhere.length) flags.push({ level: "info", text: `IRIS 다른 기관(${elsewhere.join(", ")})에 같은 이름이 있어요` });
+        if (elsewhere.length) flags.push({ level: "info", text: `${EXT} 다른 기관(${elsewhere.join(", ")})에 같은 이름이 있어요` });
         rows.push({ kind: "pmsOnly", name: pms.name, pms, iris: null, flags, verdict: "pmsOnly" });
         continue;
       }
@@ -265,11 +305,12 @@ window.Compare = (() => {
       }
 
       if (iris.periods.length && iris.periods.every((p) => !p.rate)) {
-        flags.push({ level: "warn", text: "IRIS 계상비율(현금)이 0%로 입력돼 있어요" });
+        flags.push({ level: "warn", text: `${EXT} 계상비율${avgOnly ? "" : "(현금)"}이 0%로 입력돼 있어요` });
       }
-      const monthly = judge(pms.monthly, iris, monthKeys, pms.exec.periods);
-      const agreement = pmsParsed.meta.hasAgreement ? judge(pms.agreement.months, iris, monthKeys, pms.agreement.periods) : null;
-      if (monthly.periodDiff) flags.push({ level: "warn", text: `참여기간이 달라요 (중도입사·퇴사 등) — PMS ${monthly.periodDiff.pms} / IRIS ${monthly.periodDiff.iris}` });
+      const jopts = { avgOnly, ext: EXT };
+      const monthly = judge(pms.monthly, iris, monthKeys, pms.exec.periods, jopts);
+      const agreement = pmsParsed.meta.hasAgreement ? judge(pms.agreement.months, iris, monthKeys, pms.agreement.periods, jopts) : null;
+      if (monthly.periodDiff) flags.push({ level: "warn", text: `참여기간이 달라요 (중도입사·퇴사 등) — PMS ${monthly.periodDiff.pms} / ${EXT} ${monthly.periodDiff.iris}` });
       if (monthly.partial) flags.push({ level: "info", text: `한 달을 다 채우지 않은 참여월이 ${monthly.partial}개 있어요 (◐ 표시)` });
       if (monthly.review) flags.push({ level: "warn", text: `한 달 안에 참여율이 둘 이상인 달이 ${monthly.review}개 있어요 — 직접 확인해주세요` });
 
@@ -322,6 +363,8 @@ window.Compare = (() => {
     return {
       ok: true,
       projectCode: pmsParsed.meta.projectCode,
+      ext: EXT,
+      avgOnly,
       projectCodes: pmsParsed.meta.projectCodes || [pmsParsed.meta.projectCode],
       leaderName: pmsLead ? pmsLead.name : (irisLead ? irisLead.name : ""),
       hasAgreement: pmsParsed.meta.hasAgreement,

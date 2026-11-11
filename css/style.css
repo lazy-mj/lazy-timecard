@@ -741,3 +741,35 @@ tr.r-pms td.ac { border-bottom: 1px dashed #D5DCE6; }
 td.dc .acct { display: flex; flex-wrap: wrap; justify-content: center; gap: 3px; margin-top: 3px; }
 td.dc .acct span { font-size: 10.5px; font-weight: 700; color: #0369A1; background: #E0F2FE; border-radius: 5px; padding: 0 5px; line-height: 17px; }
 td.dc .acct span { color: #64748B; background: #F1F5F9; font-weight: 600; }
+
+/* ----- RCMS 캡처 묶음 (업로드 카드) ----- */
+.rcms-area:empty { display: none; }
+.rcms-area { margin-top: 14px; padding: 14px; border: 1px solid #D9D2EE; border-radius: 12px; background: #FBFAFF; white-space: normal; }
+.rc-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; }
+.rc-head .rc-hint { color: var(--text-muted); font-size: 12px; flex: 1; min-width: 200px; }
+.rc-head .rc-clear { padding: 5px 10px; font-size: 12px; }
+.rc-thumbs { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+.rc-thumb { position: relative; width: 150px; height: 60px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: #fff; }
+.rc-thumb img { width: 100%; height: 100%; object-fit: cover; object-position: left top; }
+.rc-thumb .rc-st { position: absolute; left: 4px; bottom: 4px; font-size: 10.5px; font-weight: 700; padding: 0 6px; border-radius: 5px; background: rgba(255,255,255,.92); }
+.rc-st.st-ok { color: var(--success); } .rc-st.st-bad { color: var(--danger); } .rc-st.st-run { color: #5E35B1; }
+.rc-thumb .rc-x { position: absolute; right: 3px; top: 3px; border: 0; background: rgba(255,255,255,.9); border-radius: 50%; width: 20px; height: 20px; font-size: 11px; cursor: pointer; color: var(--text-muted); }
+.rc-table-wrap { background: #fff; }
+table.rc-table { border-collapse: collapse; width: 100%; font-size: 13px; }
+table.rc-table th, table.rc-table td { border-bottom: 1px solid #E3E8EF; padding: 5px 6px; text-align: center; vertical-align: middle; }
+table.rc-table th { background: #EEF1F6; font-size: 12px; color: #374151; }
+table.rc-table input { font: inherit; font-size: 13px; text-align: center; border: 1px solid transparent; border-radius: 6px; padding: 3px 4px; background: transparent; }
+table.rc-table input:hover, table.rc-table input:focus { border-color: var(--border); background: #fff; outline: none; }
+table.rc-table td.warn { background: #FFF4D6; }
+table.rc-table td.warn input { font-weight: 700; color: #8A5A00; }
+.rc-note { font-size: 10.5px; color: #8A5A00; margin-top: 1px; }
+.rc-src { color: var(--text-muted); font-size: 11.5px; }
+.rc-del { border: 0; background: none; color: var(--text-muted); cursor: pointer; }
+.rc-del:hover { color: var(--danger); }
+.rc-foot { display: flex; align-items: center; gap: 12px; margin-top: 8px; font-size: 12.5px; }
+.rc-foot .rc-add { padding: 5px 10px; font-size: 12px; }
+.rc-warn { color: #8A5A00; }
+.rc-empty { font-size: 13px; color: var(--text-muted); padding: 10px 2px; }
+/* 결과표: RCMS 줄 */
+td.src-rcms { color: #5E35B1; background: #F6F3FD; }
+.rc-table-wrap { max-height: 460px; overflow-y: auto; }

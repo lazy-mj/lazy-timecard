@@ -12,6 +12,7 @@ load("js/systems/registry.js");
 load("js/systems/pms.js");
 load("js/systems/iris.js");
 load("js/core/compare.js");
+load("js/systems/rcms.js");
 
 const M = ["2026-04월", "2026-05월", "2026-06월", "2026-07월", "2026-08월", "2026-09월", "2026-10월", "2026-11월", "2026-12월"];
 const pmsRow = (name, info, agree, exec, months, role = "참여연구원") =>
@@ -210,6 +211,36 @@ expect("축약 이름 마이클 ↔ IRIS 긴 이름 → 일치", rr("마이클")
 expect("미등록 없음", reRes.summary.oneSide, 0);
 expect("사업책임자만 맨 위", reRes.rows[0].name + (reRes.rows[0].isLead ? "*" : ""), "가나다*");
 expect("과제책임자는 계정 책임자 태그", rr("과제장").isSubLead && !rr("과제장").isLead, true);
+
+// ---- RCMS 캡처 글자 인식 결과(줄 텍스트) → 확인표 → 연평균 대조 ----
+// 캡처 2장이 겹침(3번 줄), 인식 오류 이름(가니다 → 가나다), 머리줄·제목 줄 섞임
+const rcmsLines = [
+  ["No. 연구개발기관 참여구분 성명 생년월일 내/외국인구분 인건비계상률 참여시작일 참여종료일 채용형태",
+   "1 과제색임자 가니다 1970.01.02 내국인 50 2026.04.01 2026.12.31 일반의무채용",
+   "2 한국전자통신연구원 라마바 1980.03.04 내국인 20 2026.04.01 2026.12.31 일반의무채용",
+   "3 차카타 1990.05.06 내국인 22.5 2026.04.01 2026.12.31 일반의무채용"],
+  ["3 차카타 1990.05.06 내국인 22.5 2026.04.01 2026.12.31 일반의무채용",
+   "4 참여연구자 사아자 1985.07.08 내국인 10 2026.07.01 2026.12.31 일반의무채용"],
+];
+const rcmsPms = [...splitHead("99RC0010"),
+  pmsRow("가나다", "00001/테스트실/책임연구원", "", "26/04/01 ~ 26/12/31 : 50%", [50, 50, 50, 50, 50, 50, 50, 50, 50], "사업책임자"),
+  pmsRow("라마바", "00002/테스트실/선임연구원", "", "26/04/01 ~ 26/12/31 : 20%", [10, 10, 10, 30, 30, 30, 20, 20, 20]),
+  pmsRow("차카타", "00004/테스트실/연구원", "", "26/04/01 ~ 26/12/31 : 20%", [20, 20, 20, 20, 25, 25, 25, 25, 20]),
+  pmsRow("사아자", "00003/테스트실/연구원", "", "26/07/01 ~ 26/12/31 : 40%", [0, 0, 0, 40, 40, 40, 40, 40, 40])];
+const pR = SystemRegistry.get("PMS").parse(rcmsPms);
+const rcRows = RcmsOcr.mergeRows(rcmsLines.map((ls) => ls.map(RcmsOcr.parseLine).filter(Boolean)), pR.people.map((p) => p.name));
+expect("RCMS 줄 4명 (겹친 줄 합침)", rcRows.length, 4);
+expect("RCMS 겹친 줄은 캡처 1·2", rcRows.find((r) => r.no === 3).sources.join(","), "1,2");
+expect("RCMS 이름 보정 가니다 → 가나다", rcRows[0].name + "/" + rcRows[0].nameFixed, "가나다/가니다");
+expect("RCMS 책임자 인식(색임자)", rcRows[0].lead, true);
+expect("RCMS 계상률 소수", rcRows.find((r) => r.no === 3).rate, 22.5);
+const rcRes = Compare.run(pR, RcmsOcr.toParsed(rcRows));
+const rcr = (n) => rcRes.rows.find((r) => r.name === n);
+expect("RCMS 대조 모드", rcRes.ext + "/" + rcRes.avgOnly, "RCMS/true");
+expect("RCMS 평균 같으면 매달 달라도 일치(라마바 20)", rcr("라마바").verdict, "match");
+expect("RCMS 22.5 vs PMS 평균 22.22 → 불일치", rcr("차카타").verdict, "mismatch");
+expect("RCMS 사아자 40 vs 10 → 불일치", rcr("사아자").verdict, "mismatch");
+expect("RCMS 가나다 일치", rcr("가나다").verdict, "match");
 
 if (failed) { console.log(`\n❌ ${failed}개 실패`); process.exit(1); }
 console.log("\n✅ 스모크 테스트 통과");

@@ -38,7 +38,11 @@ function refreshUpload() {
 async function handleFiles(fileList) {
   resetResultIfNeeded();
   $("#errorArea").innerHTML = "";
-  for (const file of Array.from(fileList)) {
+  const all = Array.from(fileList);
+  // 이미지는 RCMS 캡처로 (글자 인식), 나머지는 엑셀로
+  const images = all.filter((f) => /^image\//.test(f.type) || /\.(png|jpe?g|webp|bmp|gif)$/i.test(f.name));
+  if (images.length) RcmsUi.addImages(images);
+  for (const file of all.filter((f) => !images.includes(f))) {
     const entry = { id: AppState.nextFileId(), name: file.name, grid: null, type: "분석중", parsed: null };
     AppState.state.files.push(entry);
     renderChips();
@@ -52,12 +56,16 @@ async function handleFiles(fileList) {
     }
   }
   refreshUpload();
+  RcmsUi.onPmsChanged();
 }
 
 function removeFile(id) {
   resetResultIfNeeded();
+  const f = AppState.fileById(id);
+  if (f && f.type === "RCMS") { RcmsUi.clearAll(); return; }
   AppState.state.files = AppState.state.files.filter((f) => f.id !== id);
   refreshUpload();
+  RcmsUi.onPmsChanged();
 }
 
 function setPair(pmsId, irisId) {
@@ -67,6 +75,7 @@ function setPair(pmsId, irisId) {
 }
 
 function resetAll() {
+  RcmsUi.clearAll(true);
   AppState.state.files = [];
   AppState.state.pairs = {};
   AppState.state.manual.clear();
@@ -104,6 +113,16 @@ function wireDropzone() {
   ["dragenter", "dragover"].forEach((evt) => dz.addEventListener(evt, (e) => { e.preventDefault(); dz.classList.add("dragover"); }));
   ["dragleave", "drop"].forEach((evt) => dz.addEventListener(evt, (e) => { e.preventDefault(); dz.classList.remove("dragover"); }));
   dz.addEventListener("drop", (e) => { if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
+  // RCMS 화면 캡처는 Ctrl+V 로 바로 붙여넣기
+  document.addEventListener("paste", (e) => {
+    if (AppState.state.resultShown) return;
+    if (e.target && /input|textarea/i.test(e.target.tagName)) return;
+    const imgs = [...(e.clipboardData ? e.clipboardData.items : [])].filter((it) => it.type.startsWith("image/")).map((it, i) => {
+      const f = it.getAsFile();
+      return new File([f], `붙여넣은 캡처 ${AppState.state.rcms.images.length + i + 1}.png`, { type: f.type });
+    });
+    if (imgs.length) { e.preventDefault(); handleFiles(imgs); }
+  });
 }
 
 function showGuideModal() {
@@ -120,6 +139,7 @@ function showGuideModal() {
       <p class="usage-subhead">어디서 다운로드하나요?</p>
       <ul>
         <li><b>PMS(ETRIware) 참여인력</b> : 과제관리 &gt; 사업관리 &gt; 실행과제관리 &gt; 실행계획서관리 &gt; 과제조회 후 더블클릭(실행과제마스터) &gt; 참여인력 탭 &gt; 우측상단 [엑셀변환] 버튼</li>
+        <li><b>RCMS 참여연구자</b> : 협약정보확인 &gt; 과제선택 &gt; 참여연구자 탭 &gt; 스크롤하여 전체 인원 화면 캡처(겹쳐도 됨) — 엑셀 다운로드가 안 돼서 캡처를 끌어다 놓거나 Ctrl+V로 붙여넣어요</li>
         <li><b>IRIS 참여연구자</b> : IRIS R&amp;D업무포털 &gt; 과제수행 &gt; 협약변경 &gt; (승인통보)협약변경신청 &gt; 과제조회(책임자명, 과제명 등) &gt; 연구개발과제명 앞 네모 버튼 &gt; 통합과제 팝업 &gt; 수행정보 탭 &gt; 연차별수행정보 탭 &gt; 참여연구원 탭 &gt; 좌측에서 당해 연구개발기간 선택 &gt; 참여연구원 참여시작일 확인 후 우측상단 [엑셀] 버튼</li>
       </ul>
     `,

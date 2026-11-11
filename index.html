@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://api.fontshare.com; font-src 'self' https://cdn.fontshare.com; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self' 'unsafe-inline' https://api.fontshare.com; font-src 'self' https://cdn.fontshare.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none';">
 <title>참여율 대조 도구</title>
 <link rel="icon" type="image/svg+xml" href="/lazy-office/shared/favicon.svg">
 <!-- 공통 디자인 시스템(lazy-office). 아래 css/style.css가 뒤에 로드되므로 겹치는 규칙은 항상 css/style.css가 이깁니다 -->
 <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=clash-display@400,600,700&display=swap">
 <link rel="stylesheet" href="/lazy-office/shared/style.css">
-<link rel="stylesheet" href="css/style.css?v=5">
+<link rel="stylesheet" href="css/style.css?v=6">
 </head>
 <body class="tool-page">
 <div class="site-header-placeholder"></div>
@@ -41,22 +41,25 @@
     <div class="card-head">
       <h2><span class="step-badge"><svg class="icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg></span>참여인력 파일 업로드</h2>
       <p class="desc">PMS(ETRIware) 참여인력 엑셀과 IRIS 참여연구자 엑셀을 올리면 ETRI 참여자의 참여기간·월별 참여율을 대조합니다.</p>
-      <p class="scope-note"><svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg> 현재 IRIS 지원 (RCMS 추후 추가 예정)</p>
+      <p class="scope-note"><svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg> IRIS 엑셀 · RCMS 화면 캡처 지원</p>
     </div>
     <div class="dropzone" id="dropzone">
       <div class="dz-icon"><svg class="icon-svg" width="26" height="26" viewBox="0 0 24 24"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg></div>
       <div class="dz-label">PMS·IRIS 참여인력 엑셀 파일을 여기로 끌어다 놓거나 클릭해서 업로드하세요</div>
+      <div class="dz-hint">RCMS는 참여연구자 화면을 캡처해서 끌어다 놓거나 <b>Ctrl+V</b>로 붙여넣으세요 (여러 장 겹쳐 찍어도 돼요)</div>
       <div class="dz-hint">여러 과제 파일을 한 번에 드래그해도 자동으로 구분하고, 이름이 겹치는 파일끼리 짝지어 둡니다</div>
-      <input type="file" id="fileInput" accept=".xlsx,.xls,.xlsm" multiple>
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.xlsm,image/*" multiple>
     </div>
     <div class="where-box">
       <div class="wb-title"><svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg> 어디서 다운로드하나요?</div>
       <div class="wb-row"><span class="dz-badge badge-pms">PMS 참여인력</span><span>과제관리 › 사업관리 › 실행과제관리 › 실행계획서관리 › 과제조회 후 더블클릭(실행과제마스터) › 참여인력 탭 › 우측상단 <b>[엑셀변환]</b></span></div>
       <div class="wb-row"><span class="dz-badge badge-iris">IRIS 참여연구자</span><span>R&amp;D업무포털 › 과제수행 › 협약변경 › (승인통보)협약변경신청 › 과제조회 › 과제명 앞 네모 버튼 › 통합과제 팝업 › 수행정보 › 연차별수행정보 › 참여연구원 탭 › 당해 연구개발기간 선택 › 우측상단 <b>[엑셀]</b></span></div>
+      <div class="wb-row"><span class="dz-badge badge-rcms">RCMS 참여연구자</span><span>협약정보확인 › 과제선택 › 참여연구자 탭 › 스크롤하며 전체 인원 <b>화면 캡처</b>(겹쳐도 됨) · 끌어다 놓기 또는 <b>Ctrl+V</b></span></div>
       <div class="wb-note">실행계정이 여러 개(예: XX10, XX20)인 경우 계정별 엑셀을 모두 올려주세요. 같은 IRIS 과제로 묶어 합산 대조합니다.</div>
     </div>
     <div class="file-chips" id="fileChips"></div>
     <div class="upload-hint-msg" id="uploadHint"></div>
+    <div class="rcms-area" id="rcmsArea"></div>
     <div class="pair-area" id="pairArea"></div>
     <div class="btn-row">
       <button class="btn-action" id="runBtn" disabled><span class="shine"></span><span class="btn-label">대조 실행</span></button>
@@ -93,10 +96,12 @@
   <script src="js/systems/registry.js"></script>
   <script src="js/systems/pms.js"></script>
   <script src="js/systems/iris.js"></script>
+  <script src="js/systems/rcms.js"></script>
   <script src="js/core/compare.js"></script>
   <script src="js/ui/dom.js"></script>
   <script src="js/ui/state.js"></script>
   <script src="js/ui/render.js"></script>
+  <script src="js/ui/rcms-ui.js"></script>
   <script src="js/ui/excel-export.js"></script>
   <script src="js/main.js"></script>
   <script src="/lazy-office/shared/header.js" data-active="timecard"></script>
